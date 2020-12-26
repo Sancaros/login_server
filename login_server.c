@@ -2553,14 +2553,12 @@ void ShipProcessPacket(ORANGE* ship)
 	case 0x03:
 		//WriteLog("登陆服务器未知 0x03");
 		break;
-	case 0x04:
+	case 0x04:// 角色数据相关指令
 		switch (ship->decryptbuf[0x05])
 		{
-		case 0x00:
+		case 0x00:// 发送完整的角色数据
 		{
 			// Send full player data here.
-			// 发送完整的角色数据
-
 			unsigned guildcard;
 			unsigned short slotnum;
 			unsigned size;
@@ -2680,7 +2678,7 @@ void ShipProcessPacket(ORANGE* ship)
 
 			sprintf_s(myQuery, _countof(myQuery), "SELECT * from character_data WHERE guildcard='%u' AND slot='%u'", guildcard, slotnum);
 
-			//debug ("MySQL query executing ... %s ", &myQuery[0] );
+			debug ("MySQL查询正在执行中... %s ", &myQuery[0] );
 
 			if (!mysql_query(myData, &myQuery[0]))
 			{
@@ -2835,7 +2833,7 @@ void ShipProcessPacket(ORANGE* ship)
 			sprintf_s(myQuery, _countof(myQuery), "UPDATE bank_data set data = '%s' WHERE guildcard = '%u'", (char*)&E7chardata[0], guildcard);
 			if (mysql_query(myData, &myQuery[0]))
 			{
-				debug("Could not save common bank for guild card无法保存公会卡的公共银行 %u.", guildcard);
+				debug("无法保存公会卡的公共银行 %u. \n", guildcard);
 				return;
 			}
 
@@ -2968,10 +2966,10 @@ void ShipProcessPacket(ORANGE* ship)
 		}
 		break;
 	case 0x05:
-		printf("未知 ShipProcessPacket 0x05 指令");
+		printf("未知 ShipProcessPacket 0x05 指令\n");
 		break;
 	case 0x06:
-		printf("未知 ShipProcessPacket 0x06 指令");
+		printf("未知 ShipProcessPacket 0x06 指令\n");
 		break;
 	case 0x07://好友相关代码
 		switch (ship->decryptbuf[0x05])
@@ -3949,7 +3947,7 @@ void ShipProcessPacket(ORANGE* ship)
 		}
 		break;
 	case 0x0A:
-		printf("未知 ShipProcessPacket 0x0A 指令");
+		printf("未知 ShipProcessPacket 0x0A 指令\n");
 		break;
 	case 0x0B:// Checking authentication... 检查认证信息
 		switch (ship->decryptbuf[0x05])
@@ -4079,7 +4077,7 @@ void ShipProcessPacket(ORANGE* ship)
 		}
 		break;
 	case 0x0C:
-		printf("未知 ShipProcessPacket 0x0C 指令");
+		printf("未知 ShipProcessPacket 0x0C 指令\n");
 		break;
 	case 0x0D:// Various commands related to ship transfers... 各种与船舶转移有关的命令。。。 
 		ShipSend0D(ship->decryptbuf[0x05], ship);
@@ -4152,7 +4150,7 @@ void ShipProcessPacket(ORANGE* ship)
 	default:
 		// Unknown packet received from ship?
 		// 从舰船服务器接收到的未知数据包？
-		printf("未知 ShipProcessPacket 指令 会造成与舰船断开连接");
+		printf("未知 ShipProcessPacket 指令 会造成与舰船断开连接\n");
 		ship->todc = 1;
 		break;
 	}
@@ -4182,6 +4180,7 @@ void CharacterProcessPacket(BANANA* client)
 	case 0x05:
 		printf("用户进入跃迁.\n");
 		client->todc = 1;
+		printf("探测 CharacterProcessPacket 0x05 指令 的用途\n");
 		break;
 	case 0x10:
 		if ((client->guildcard) && (client->slotnum != -1))
@@ -4204,9 +4203,11 @@ void CharacterProcessPacket(BANANA* client)
 				}
 			}
 		}
+		printf("探测 CharacterProcessPacket 0x10 指令 的用途\n");
 		break;
 	case 0x1D:
 		// Do nothing.啥也不做
+		printf("探测 CharacterProcessPacket 0x1D 指令 的用途\n");
 		break;
 	case 0x93: //客户端相应数据包 用于用户认证账户信息
 		if (!client->sendCheck[RECEIVE_PACKET_93]) //如果未接到93指令
@@ -4552,6 +4553,7 @@ void CharacterProcessPacket(BANANA* client)
 			}
 			client->sendCheck[RECEIVE_PACKET_93] = 0x01;
 		}
+		printf("探测 CharacterProcessPacket 0x93 指令 的用途\n");
 		break;
 	case 0xDC:
 		switch (client->decryptbuf[0x03])
@@ -4564,21 +4566,23 @@ void CharacterProcessPacket(BANANA* client)
 		default:
 			break;
 		}
+		printf("探测 CharacterProcessPacket 0xDC 指令 的用途\n");
 		break;
 	case 0xE0:
 		// The gamepad, keyboard config, and other options....游戏板和其他选项。。。。
-		printf("探测 CharacterProcessPacket 0xE0 指令 的用途");
+		printf("探测 CharacterProcessPacket 0xE0 指令 的用途\n");
 		SendE2(client);
 		break;
 	case 0xE3:
 		// Client selecting or requesting character.客户端选择或请求角色数据
 		SendE4_E5(client->decryptbuf[0x08], client->decryptbuf[0x0C], client);
-		printf("探测 CharacterProcessPacket 0xE3 指令 的用途");
+		printf("探测 CharacterProcessPacket 0xE3 指令 的用途\n");
 		break;
 	case 0xE5:
 		// Create a character in slot.在角色槽位中创建角色
 		// Check invalid data and store character in MySQL store.检查在数据库中无效的角色数据并进行恢复
 		AckCharacter_Creation(client->decryptbuf[0x08], client);
+		printf("探测 CharacterProcessPacket 0xE5 指令 的用途\n");
 		break;
 	case 0xE8:
 		switch (client->decryptbuf[0x03])
@@ -4596,6 +4600,7 @@ void CharacterProcessPacket(BANANA* client)
 		default:
 			break;
 		}
+		printf("探测 CharacterProcessPacket 0xE8 指令 的用途\n");
 		break;
 	case 0xEB:
 		switch (client->decryptbuf[0x03])
@@ -4609,6 +4614,7 @@ void CharacterProcessPacket(BANANA* client)
 			SendEB(0x01, 0x00, client);
 			break;
 		}
+		printf("探测 CharacterProcessPacket 0xEB 指令 的用途\n");
 		break;
 	case 0xEC:
 		if (client->decryptbuf[0x08] == 0x02)
@@ -4629,6 +4635,7 @@ void CharacterProcessPacket(BANANA* client)
 				}
 			client->dress_flag = 1;
 		}
+		printf("探测 CharacterProcessPacket 0xEC 指令 的用途\n");
 		break;
 	default:
 		break;
@@ -4661,7 +4668,7 @@ void LoginProcessPacket(BANANA* client)
 	switch (client->decryptbuf[0x02])
 	{
 	case 0x05:
-		printf("客户端已断开连接.\n");
+		printf("客户端已断开跃迁程序.\n");
 		client->todc = 1;
 		break;
 	case 0x93:
