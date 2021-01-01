@@ -21,12 +21,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 // - Limit to 40 guild cards for now.
 //
 
+//数据库相关
+#define SQL
+#define NO_CONNECT_TEST //会在连接舰船的时候 给舰船发送一个0字节的心跳包
+
 #include <windows.h>
+#include "targetver.h"
 #include <stdio.h>
+#include <tchar.h>
 #include <mbstring.h>
 #include <locale.h> //12.22
 #include <time.h>
-#include <wchar.h>
 #include <math.h>
 
 #ifndef NO_SQL
@@ -45,17 +50,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "def_struct.h"
 
 
-#define SERVER_VERSION "0.050"
+//#define SERVER_VERSION "0.050"
 
-const wchar_t Message03[22] = { L"Tethealla 登录服务器 v.047" };
+//const wchar_t Message03[22] = { L"Tethealla 登录服务器 v.047" };
 
-const char *PSO_CLIENT_VER_STRING = "TethVer12513";
-
-struct timeval select_timeout = {
-	0,
-	5000
-};
-
+//const char *PSO_CLIENT_VER_STRING = "TethVer12513";
 
 /* String sent to server to retrieve IP address. */
 
@@ -96,10 +95,10 @@ time_t servertime;
 
 #ifndef NO_SQL
 
-MYSQL * myData;
+MYSQL* myData;
 char myQuery[0x10000] = { 0 };
 MYSQL_ROW myRow;
-MYSQL_RES * myResult;
+MYSQL_RES* myResult;
 
 #endif
 
@@ -204,16 +203,16 @@ typedef struct st_team_data {
 
 // Oh brother :D
 
-L_BANK_DATA *bank_data[MAX_ACCOUNTS];
-L_ACCOUNT_DATA *account_data[MAX_ACCOUNTS];
-L_CHARACTER_DATA *character_data[MAX_ACCOUNTS * 4];
-L_GUILD_DATA *guild_data[MAX_ACCOUNTS * 40];
-L_HW_BANS *hw_bans[MAX_ACCOUNTS];
-L_IP_BANS *ip_bans[MAX_ACCOUNTS];
-L_KEY_DATA *key_data[MAX_ACCOUNTS];
-L_SECURITY_DATA *security_data[MAX_ACCOUNTS];
-L_SHIP_DATA *ship_data[SHIP_COMPILED_MAX_CONNECTIONS];
-L_TEAM_DATA *team_data[MAX_ACCOUNTS];
+L_BANK_DATA* bank_data[MAX_ACCOUNTS];
+L_ACCOUNT_DATA* account_data[MAX_ACCOUNTS];
+L_CHARACTER_DATA* character_data[MAX_ACCOUNTS * 4];
+L_GUILD_DATA* guild_data[MAX_ACCOUNTS * 40];
+L_HW_BANS* hw_bans[MAX_ACCOUNTS];
+L_IP_BANS* ip_bans[MAX_ACCOUNTS];
+L_KEY_DATA* key_data[MAX_ACCOUNTS];
+L_SECURITY_DATA* security_data[MAX_ACCOUNTS];
+L_SHIP_DATA* ship_data[SHIP_COMPILED_MAX_CONNECTIONS];
+L_TEAM_DATA* team_data[MAX_ACCOUNTS];
 
 unsigned num_accounts = 0;
 unsigned num_characters = 0;
@@ -231,10 +230,12 @@ int ds_found, new_record, free_record;
 #endif
 
 BANK empty_bank;
+//CHALLENGEDATA empty_challengeData;
+//BATTLEDATA empty_battleData;
 
-/* encryption stuff */
+/* encryption stuff 加密*/
 
-void prepare_key(unsigned char *keydata, unsigned len, struct rc4_key *key);
+void prepare_key(unsigned char* keydata, unsigned len, struct rc4_key* key);
 
 PSO_CRYPT* cipher_ptr;
 
@@ -257,7 +258,7 @@ int program_hidden = 1;
 HWND consoleHwnd;
 HWND backupHwnd;
 
-void WriteLog(char *fmt, ...)
+void WriteLog(char* fmt, ...)
 {
 #define MAX_GM_MESG_LEN 4096
 
@@ -265,7 +266,7 @@ void WriteLog(char *fmt, ...)
 	char text[MAX_GM_MESG_LEN];
 	SYSTEMTIME rawtime;
 
-	FILE *fp;
+	FILE* fp;
 
 	GetLocalTime(&rawtime);
 	va_start(args, fmt);
@@ -294,11 +295,11 @@ void display_packet(unsigned char* buf, int len)
 
 	c = c2 = c3 = c4 = 0;
 
-	for (c = 0;c<len;c++)
+	for (c = 0;c < len;c++)
 	{
 		if (c3 == 16)
 		{
-			for (;c4<c;c4++)
+			for (;c4 < c;c4++)
 				if (buf[c4] >= 0x20)
 					dp[c2++] = buf[c4];
 				else
@@ -329,7 +330,7 @@ void display_packet(unsigned char* buf, int len)
 		}
 	}
 
-	for (;c4<c;c4++)
+	for (;c4 < c;c4++)
 		if (buf[c4] >= 0x20)
 			dp[c2++] = buf[c4];
 		else
@@ -344,8 +345,8 @@ Prints out message digest, a space, the string (in quotes) and a
 carriage return.
 */
 void MDString(inString, outString)
-char *inString;
-char *outString;
+char* inString;
+char* outString;
 {
 	unsigned char c;
 	MD5_CTX mdContext;
@@ -354,7 +355,7 @@ char *outString;
 	MD5Init(&mdContext);
 	MD5Update(&mdContext, inString, len);
 	MD5Final(&mdContext);
-	for (c = 0;c<16;c++)
+	for (c = 0;c < 16;c++)
 	{
 		*outString = mdContext.digest[c];
 		outString++;
@@ -368,7 +369,7 @@ void convertIPString(char* IPData, unsigned IPLen, int fromConfig)
 
 	p2 = 0;
 	p3 = 0;
-	for (p = 0;p<IPLen;p++)
+	for (p = 0;p < IPLen;p++)
 	{
 		if ((IPData[p] > 0x20) && (IPData[p] != 46))
 			convert_buffer[p3++] = IPData[p]; else
@@ -379,7 +380,7 @@ void convertIPString(char* IPData, unsigned IPLen, int fromConfig)
 				serverIP[p2] = atoi(&convert_buffer[0]);
 				p2++;
 				p3 = 0;
-				if (p2>3)
+				if (p2 > 3)
 				{
 					if (fromConfig)
 						printf("tethealla.ini 已损坏. (无法从文件中读取IP信息!)\n"); else
@@ -468,18 +469,18 @@ void construct0xEB()
 		fseek(fpb, 0, SEEK_SET);
 		fread(&EBBuffer[0], 1, EBSize, fpb);
 		EBChecksum = (unsigned)CalculateChecksum(&EBBuffer[0], EBSize);
-		*(unsigned *)&PacketEB01[ch3] = EBSize;
+		*(unsigned*)&PacketEB01[ch3] = EBSize;
 		ch3 += 4;
-		*(unsigned *)&PacketEB01[ch3] = EBChecksum;
+		*(unsigned*)&PacketEB01[ch3] = EBChecksum;
 		ch3 += 4;
-		*(unsigned *)&PacketEB01[ch3] = EBOffset;
+		*(unsigned*)&PacketEB01[ch3] = EBOffset;
 		ch3 += 4;
 		memcpy(&PacketEB01[ch3], &EBFiles[ch][0], ch2 + 1);
 		ch3 += 0x40;
 		EBOffset += EBSize;
 		ch++;
 		fclose(fpb);
-		for (ch7 = 0;ch7<EBSize;ch7++)
+		for (ch7 = 0;ch7 < EBSize;ch7++)
 		{
 			if (ch4 == 0x00)
 			{
@@ -533,6 +534,14 @@ unsigned char hexToByte(char* hs)
 	b *= 16;
 	if (hs[1] < 58) b += (hs[1] - 48); else b += (hs[1] - 55);
 	return (unsigned char)b;
+}
+
+//测试检测的数据是否含有反斜杠
+void strd(unsigned char* a) {
+	unsigned char* p = "";
+	//需要的子串
+	if (strstr(a, p))
+		WriteLog("\n[警告]:！！ \n 数据 %p 字符串为 %d\n字节长度; %d\n", a, a, sizeof(a));
 }
 
 void load_config_file()
@@ -591,7 +600,7 @@ void load_config_file()
 					if ((config_data[0] == 0x41) || (config_data[0] == 0x61))
 					{
 						struct sockaddr_in pn_in;
-						struct hostent *pn_host;
+						struct hostent* pn_host;
 						int pn_sockfd, pn_len;
 						char pn_buf[512];
 						char* pn_ipdata;
@@ -619,13 +628,13 @@ void load_config_file()
 						memset(&pn_in, 0, sizeof(pn_in)); /* Zero out structure */
 						pn_in.sin_family = AF_INET; /* Internet address family */
 
-						*(unsigned*)&pn_in.sin_addr.s_addr = *(unsigned *)pn_host->h_addr; /* Web Server IP address */
+						*(unsigned*)&pn_in.sin_addr.s_addr = *(unsigned*)pn_host->h_addr; /* Web Server IP address */
 
 						pn_in.sin_port = htons(80); /* Web Server port */
 
 													/* Establish the connection to the pioneer2.net Web Server ... */
 
-						if (connect(pn_sockfd, (struct sockaddr *) &pn_in, sizeof(pn_in)) < 0)
+						if (connect(pn_sockfd, (struct sockaddr*)&pn_in, sizeof(pn_in)) < 0)
 						{
 							printf("\n无法连接至 sanc.top!");
 							printf("按下 [回车键] 退出");
@@ -691,7 +700,7 @@ void load_config_file()
 					{
 						if (override_on = 1)
 						{
-							struct hostent *IP_host;
+							struct hostent* IP_host;
 							//这里域名竟然-1,待解决
 							//config_data[strlen(&config_data[0]) - 1] = 0x00;
 							config_data[strlen(&config_data[0])] = 0x00;
@@ -704,11 +713,11 @@ void load_config_file()
 								gets_s(&dp[0], 0);
 								exit(1);
 							}
-							*(unsigned *)&serverIP[0] = *(unsigned *)IP_host->h_addr;
+							*(unsigned*)&serverIP[0] = *(unsigned*)IP_host->h_addr;
 							printf("域名解析成功.");
 						}
 						else {
-							*(unsigned *)&overrideIP[0] = *(unsigned *)&serverIP[0];
+							*(unsigned*)&overrideIP[0] = *(unsigned*)&serverIP[0];
 							serverIP[0] = 0;
 							convertIPString(&config_data[0], ch + 1, 1);
 						}
@@ -752,7 +761,7 @@ void load_config_file()
 					(unsigned char)config_data[7] = hexToByte(&config_data[2]);
 					(unsigned char)config_data[8] = hexToByte(&config_data[0]);
 					config_data[9] = 0xFF;
-					globalName = *(unsigned *)&config_data[6];
+					globalName = *(unsigned*)&config_data[6];
 					break;
 				case 0x14:
 					// Local GM name color
@@ -760,7 +769,7 @@ void load_config_file()
 					(unsigned char)config_data[7] = hexToByte(&config_data[2]);
 					(unsigned char)config_data[8] = hexToByte(&config_data[0]);
 					config_data[9] = 0xFF;
-					localName = *(unsigned *)&config_data[6];
+					localName = *(unsigned*)&config_data[6];
 					break;
 				case 0x15:
 					// Normal name color
@@ -768,7 +777,7 @@ void load_config_file()
 					(unsigned char)config_data[7] = hexToByte(&config_data[2]);
 					(unsigned char)config_data[8] = hexToByte(&config_data[0]);
 					config_data[9] = 0xFF;
-					normalName = *(unsigned *)&config_data[6];
+					normalName = *(unsigned*)&config_data[6];
 					break;
 				default:
 					break;
@@ -787,10 +796,10 @@ void load_config_file()
 	}
 }
 
-BANANA * connections[LOGIN_COMPILED_MAX_CONNECTIONS];
-ORANGE * ships[SHIP_COMPILED_MAX_CONNECTIONS];
-BANANA * workConnect;
-ORANGE * workShip;
+BANANA* connections[LOGIN_COMPILED_MAX_CONNECTIONS];
+ORANGE* ships[SHIP_COMPILED_MAX_CONNECTIONS];
+BANANA* workConnect;
+ORANGE* workShip;
 
 unsigned char PacketA0Data[0x4000] = { 0 };
 unsigned short PacketA0Size = 0;
@@ -811,12 +820,12 @@ void construct0xA0()
 
 	PacketA0Data[0x02] = 0xA0;
 	PacketA0Data[0x0A] = 0x20;
-	*(unsigned *)&PacketA0Data[0x0C] = totalShips;
+	*(unsigned*)&PacketA0Data[0x0C] = totalShips;
 	PacketA0Data[0x10] = 0x04;
 	memcpy(&PacketA0Data[0x12], &serverName[0], 18);
 	A0Offset = 0x36;
 	totalShips = 0x00;
-	for (ch = 0;ch<serverNumShips;ch++)
+	for (ch = 0;ch < serverNumShips;ch++)
 	{
 		shipNum = serverShipList[ch];
 		if (ships[shipNum])
@@ -826,7 +835,7 @@ void construct0xA0()
 			{
 				totalShips++;
 				PacketA0Data[A0Offset] = 0x12;
-				*(unsigned *)&PacketA0Data[A0Offset + 2] = shipcheck->shipID;
+				*(unsigned*)&PacketA0Data[A0Offset + 2] = shipcheck->shipID;
 				ch2 = A0Offset + 0x08;
 				shipName = &shipcheck->name[0];
 				while (*shipName != 0x00)
@@ -857,12 +866,12 @@ void construct0xA0()
 	{
 		totalShips++;
 		PacketA0Data[A0Offset] = 0x12;
-		*(unsigned *)&PacketA0Data[A0Offset + 2] = totalShips;
-		for (ch = 0;ch<9;ch++)
+		*(unsigned*)&PacketA0Data[A0Offset + 2] = totalShips;
+		for (ch = 0;ch < 9;ch++)
 			PacketA0Data[A0Offset + 0x08 + (ch * 2)] = NoShips[ch];
 		A0Offset += 0x2C;
 	}
-	*(unsigned *)&PacketA0Data[0x04] = totalShips;
+	*(unsigned*)&PacketA0Data[0x04] = totalShips;
 	while (A0Offset % 8)
 		PacketA0Data[A0Offset++] = 0x00;
 	*(unsigned short*)&PacketA0Data[0x00] = (unsigned short)A0Offset;
@@ -876,10 +885,10 @@ unsigned free_connection()
 	unsigned fc;
 	BANANA* wc;
 
-	for (fc = 0;fc<serverMaxConnections;fc++)
+	for (fc = 0;fc < serverMaxConnections;fc++)
 	{
 		wc = connections[fc];
-		if (wc->plySockfd<0)
+		if (wc->plySockfd < 0)
 			return fc;
 	}
 	return 0xFFFF;
@@ -890,10 +899,10 @@ unsigned free_shipconnection()
 	unsigned fc;
 	ORANGE* wc;
 
-	for (fc = 0;fc<serverMaxShips;fc++)
+	for (fc = 0;fc < serverMaxShips;fc++)
 	{
 		wc = ships[fc];
-		if (wc->shipSockfd<0)
+		if (wc->shipSockfd < 0)
 			return fc;
 	}
 	return 0xFFFF;
@@ -907,7 +916,7 @@ void initialize_connection(BANANA* connect)
 	if (connect->plySockfd >= 0)
 	{
 		ch2 = 0;
-		for (ch = 0;ch<serverNumConnections;ch++)
+		for (ch = 0;ch < serverNumConnections;ch++)
 		{
 			if (serverConnectionList[ch] != connect->connection_index)
 				serverConnectionList[ch2++] = serverConnectionList[ch];
@@ -932,7 +941,7 @@ void initialize_ship(ORANGE* ship)
 			keys_in_use[ship->key_index] = 0; // key no longer in use
 
 		ch2 = 0;
-		for (ch = 0;ch<serverNumShips;ch++)
+		for (ch = 0;ch < serverNumShips;ch++)
 		{
 			if (serverShipList[ch] != ship->connection_index)
 				serverShipList[ch2++] = serverShipList[ch];
@@ -941,7 +950,7 @@ void initialize_ship(ORANGE* ship)
 		closesocket(ship->shipSockfd);
 	}
 	memset(ship, 0, sizeof(ORANGE));
-	for (ch = 0;ch<128;ch++)
+	for (ch = 0;ch < 128;ch++)
 		ship->key_change[ch] = -1;
 	ship->shipSockfd = -1;
 	// Will be changed upon a successful authentication
@@ -952,13 +961,13 @@ void initialize_ship(ORANGE* ship)
 void start_encryption(BANANA* connect)
 {
 	unsigned c, c3, c4, connectNum;
-	BANANA *workConnect, *c5;
+	BANANA* workConnect, * c5;
 
 	// Limit the number of connections from an IP address to MAX_SIMULTANEOUS_CONNECTIONS.
 
 	c3 = 0;
 
-	for (c = 0;c<serverNumConnections;c++)
+	for (c = 0;c < serverNumConnections;c++)
 	{
 		connectNum = serverConnectionList[c];
 		workConnect = connections[connectNum];
@@ -974,7 +983,7 @@ void start_encryption(BANANA* connect)
 		// Delete oldest connection to server.
 		c4 = 0xFFFFFFFF;
 		c5 = NULL;
-		for (c = 0;c<serverNumConnections;c++)
+		for (c = 0;c < serverNumConnections;c++)
 		{
 			connectNum = serverConnectionList[c];
 			workConnect = connections[connectNum];
@@ -996,7 +1005,7 @@ void start_encryption(BANANA* connect)
 	}
 
 	memcpy(&connect->sndbuf[0], &Packet03[0], sizeof(Packet03));
-	for (c = 0;c<0x30;c++)
+	for (c = 0;c < 0x30;c++)
 	{
 		connect->sndbuf[0x68 + c] = (unsigned char)rand() % 255;
 		connect->sndbuf[0x98 + c] = (unsigned char)rand() % 255;
@@ -1029,7 +1038,8 @@ void SendB1(BANANA* client)
 		client->todc = 1;
 }
 
-void Send1A(const char *mes, BANANA* client)
+//Send1A文本信息代码
+void Send1A(const char* mes, BANANA* client)
 {
 	unsigned short x1A_Len;
 
@@ -1065,7 +1075,7 @@ void SendA0(BANANA* client)
 }
 
 
-void SendEE(const char *mes, BANANA* client)
+void SendEE(const char* mes, BANANA* client)
 {
 	unsigned short xEE_Len;
 
@@ -1105,6 +1115,7 @@ void Send19(unsigned char ip1, unsigned char ip2, unsigned char ip3, unsigned ch
 
 unsigned char key_data_send[840 + 10] = { 0 };
 
+//发送设置数据
 void SendE2(BANANA* client)
 {
 	int key_exists = 0;
@@ -1116,7 +1127,7 @@ void SendE2(BANANA* client)
 #ifdef NO_SQL
 
 		ds_found = -1;
-		for (ds = 0;ds<num_keydata;ds++)
+		for (ds = 0;ds < num_keydata;ds++)
 		{
 			if (key_data[ds]->guildcard == client->guildcard)
 			{
@@ -1149,13 +1160,13 @@ void SendE2(BANANA* client)
 			key_exists = (int)mysql_num_rows(myResult);
 			if (key_exists)
 			{
-				//debug ("Key data exists, fetching...");
+				debug("密匙数据已找到, 对比中...");
 				myRow = mysql_fetch_row(myResult);
 				memcpy(&PacketE2Data[0x11C], myRow[1], 420);
 			}
 			else
 			{
-				//debug ("Key data does not exist...");
+				debug("密匙数据不存在...");
 				mysql_real_escape_string(myData, &key_data_send[0], &E2_Base[0x11C], 420);
 				sprintf_s(myQuery, _countof(myQuery), "INSERT INTO key_data (guildcard, controls) VALUES ('%u','%s')", client->guildcard, (char*)&key_data_send[0]);
 				memcpy(&PacketE2Data[0x11C], &E2_Base[0x11C], 420);
@@ -1180,6 +1191,7 @@ void SendE2(BANANA* client)
 		client->todc = 1;
 }
 
+//文本长度
 unsigned StringLength(const char* src)
 {
 	unsigned ch = 0;
@@ -1200,9 +1212,10 @@ unsigned char DefaultTeamFlagSlashes[4098];
 unsigned char DefaultTeamFlag[2048];
 unsigned char FlagSlashes[4098];
 
+//角色创建相关代码
 void AckCharacter_Creation(unsigned char slotnum, BANANA* client)
 {
-	unsigned short *n;
+	unsigned short* n;
 #ifndef NO_SQL
 	int char_exists;
 #endif
@@ -1279,7 +1292,7 @@ void AckCharacter_Creation(unsigned char slotnum, BANANA* client)
 			clientchar->skin = 0x00;
 		if (clientchar->head > maxHead)
 			clientchar->head = 0x00;
-		for (ch = 0;ch<8;ch++)
+		for (ch = 0;ch < 8;ch++)
 			clientchar->unknown5[ch] = 0x00;
 		clientchar->playTime = 0;
 
@@ -1293,13 +1306,13 @@ void AckCharacter_Creation(unsigned char slotnum, BANANA* client)
 
 #endif
 
-			/* Let's construct the FULL character now... 现在我们来构造完整的角色*/
-			//初始化一个角色
+																							 /* Let's construct the FULL character now... 现在我们来构造完整的角色*/
+																							 //初始化一个角色
 			E7Base = &E7_Base; //定义为一个空的角色
-			NewE7 = &E7_Work; //定义为一个已经设定好的角色
+			NewE7 = &E7_Work; //定义为一个正在设定的角色
 			memset(NewE7, 0, sizeof(CHARDATA)); //角色缓存器初始化
 			NewE7->packetSize = 0x39A0; //数据包大小 14752
-			//NewE7->packetSize = 0x399C; //数据包大小 14748
+										//NewE7->packetSize = 0x399C; //数据包大小 14748
 
 			NewE7->command = 0x00E7; //指令初始化
 
@@ -1346,14 +1359,14 @@ void AckCharacter_Creation(unsigned char slotnum, BANANA* client)
 			NewE7->TPmat = 0; //魔力
 			NewE7->lang = 0; //语言
 
-			// Frame 框架
+							 // Frame 框架
 			NewE7->inventory[1].in_use = 0x01;
 			NewE7->inventory[1].flags = 0x08;
 			NewE7->inventory[1].item.data[0] = 0x01;
 			NewE7->inventory[1].item.data[1] = 0x01;
 			NewE7->inventory[1].item.itemid = 0x00010001; //定义物品ID最大长度65537
 
-			// Mag 这里可以修改初始玛古的数据
+														  // Mag 这里可以修改初始玛古的数据
 			NewE7->inventory[2].in_use = 0x01;
 			NewE7->inventory[2].flags = 0x08;
 			NewE7->inventory[2].item.data[0] = 0x02;
@@ -1381,7 +1394,7 @@ void AckCharacter_Creation(unsigned char slotnum, BANANA* client)
 			if ((clientchar->_class == CLASS_FONEWM) || (clientchar->_class == CLASS_FONEWEARL) ||
 				(clientchar->_class == CLASS_FOMARL) || (clientchar->_class == CLASS_FOMAR))
 			{ //对应匹配四种人类模型
-				// Monofluids 单流体？
+			  // Monofluids 单流体？
 				NewE7->techniques[0] = 0x00;
 				NewE7->inventory[4].in_use = 0x01;
 				NewE7->inventory[4].flags = 0x00;
@@ -1399,7 +1412,7 @@ void AckCharacter_Creation(unsigned char slotnum, BANANA* client)
 				NewE7->inventoryUse = 4;
 			}
 			//定义空白背包 格数为小于30
-			for (ch = NewE7->inventoryUse;ch<30;ch++)
+			for (ch = NewE7->inventoryUse;ch < 30;ch++)
 			{
 				NewE7->inventory[ch].in_use = 0x00;
 				NewE7->inventory[ch].item.data[1] = 0xFF;
@@ -1407,8 +1420,8 @@ void AckCharacter_Creation(unsigned char slotnum, BANANA* client)
 			}
 
 			memcpy(&NewE7->ATP, &startingStats[clientchar->_class * 14], 14); //14字节 对应ATP MST EVP HP DFP TP LCK ATA 的属性
-			
-			//初始化的设置信息吧
+
+																			  //初始化的设置信息吧
 			*(long long*)&NewE7->option_flags = *(long long*)&E7Base->option_flags;
 
 			//NewE7->level = 0x00; 设置等级为0
@@ -1422,9 +1435,9 @@ void AckCharacter_Creation(unsigned char slotnum, BANANA* client)
 			//来自于小人物角色资料结构
 			memcpy(&NewE7->unknown3, &clientchar->unknown2, 14); //和E5指令中的参数一样
 																 //来自于小人物角色资料结构
-			// Will copy all 4 values.会复制4个值
-			*(unsigned *)&NewE7->nameColorBlue = *(unsigned *)&clientchar->nameColorBlue;
-																						  //来自于小人物角色资料结构
+																 // Will copy all 4 values.会复制4个值
+			*(unsigned*)&NewE7->nameColorBlue = *(unsigned*)&clientchar->nameColorBlue;
+			//来自于小人物角色资料结构
 			NewE7->skinID = clientchar->skinID; //来自于小人物角色资料结构
 			memcpy(&NewE7->unknown4, &clientchar->unknown3, 18); //来自于小人物角色资料结构
 			NewE7->sectionID = clientchar->sectionID; //来自于小人物角色资料结构
@@ -1443,7 +1456,7 @@ void AckCharacter_Creation(unsigned char slotnum, BANANA* client)
 			NewE7->proportionY = clientchar->proportionY; //来自于小人物角色资料结构
 
 			n = (unsigned short*)&clientchar->name[4]; //来自于小人物角色资料结构
-			for (ch = 0;ch<10;ch++)
+			for (ch = 0;ch < 10;ch++)
 			{
 				if (*n == 0x0000)
 					break;
@@ -1453,15 +1466,15 @@ void AckCharacter_Creation(unsigned char slotnum, BANANA* client)
 			}
 			memcpy(&NewE7->name, &clientchar->name, 24); //来自于小人物角色资料结构
 
-			*(unsigned *)&NewE7->unknown6 = *(unsigned *)&clientchar->unknown5; //来自于小人物角色资料结构
+			*(unsigned*)&NewE7->unknown6 = *(unsigned*)&clientchar->unknown5; //来自于小人物角色资料结构
 
 			memcpy(&NewE7->keyConfig, &E7Base->keyConfig, 232);
 
 			// TO DO: Give Foie to starting Forces.举手投足 未完成的 让佛恩开始变得强力
 			memcpy(&NewE7->techniques, &E7Base->techniques, 20);
 			memcpy(&NewE7->name3, &E7Base->name3, 16);
-			*(unsigned *)&NewE7->options = *(unsigned *)&E7Base->options; //构建选项
-			//以下开始要注意了
+			*(unsigned*)&NewE7->options = *(unsigned*)&E7Base->options; //构建选项
+																		  //以下开始要注意了
 			memcpy(&NewE7->quest_data1, &E7Base->quest_data1, 520);
 			NewE7->bankUse = E7Base->bankUse;
 			NewE7->bankMeseta = E7Base->bankMeseta;
@@ -1478,7 +1491,7 @@ void AckCharacter_Creation(unsigned char slotnum, BANANA* client)
 			NewE7->sectionID2 = clientchar->sectionID; //来自于小人物角色资料结构
 			NewE7->_class2 = clientchar->_class; //来自于小人物角色资料结构
 
-			*(unsigned *)&NewE7->unknown10[0] = *(unsigned *)&E7Base->unknown10[0];
+			*(unsigned*)&NewE7->unknown10[0] = *(unsigned*)&E7Base->unknown10[0];
 
 			memcpy(&NewE7->symbol_chats, &E7Base->symbol_chats, 1248);
 			memcpy(&NewE7->shortcuts, &E7Base->shortcuts, 2624);
@@ -1487,12 +1500,12 @@ void AckCharacter_Creation(unsigned char slotnum, BANANA* client)
 			memcpy(&NewE7->unknown12, &E7Base->unknown12, 200);
 			memcpy(&NewE7->challengeData, &E7Base->challengeData, 320);
 			memcpy(&NewE7->techConfig, &E7Base->techConfig, 40);
-			memcpy(&NewE7->unknown13, &E7Base->unknown13, 40);
-			memcpy(&NewE7->battleData, &E7Base->battleData, 92);
+			memcpy(&NewE7->unknown13, &E7Base->unknown13, 44);
+			memcpy(&NewE7->battleData, &E7Base->battleData, 88);
 
 			memcpy(&NewE7->unknown14, &E7Base->unknown14, 276); //应该是和公会有关吧
-			// TO DO: Actually, we should use the values from the database, but I haven't added columns for them yet... 实际上，我们应该使用数据库中的值，但是我还没有为它们添加列 
-			// For now, we'll use the "base" packet's values. 现在，我们将使用“base”包的值 
+																// TO DO: Actually, we should use the values from the database, but I haven't added columns for them yet... 实际上，我们应该使用数据库中的值，但是我还没有为它们添加列 
+																// For now, we'll use the "base" packet's values. 现在，我们将使用“base”包的值 
 			memcpy(&NewE7->keyConfigGlobal, &E7Base->keyConfigGlobal, 364);
 			memcpy(&NewE7->joyConfigGlobal, &E7Base->joyConfigGlobal, 56);
 			memcpy(&NewE7->serial_number, &E7Base->serial_number, 4);
@@ -1521,7 +1534,7 @@ void AckCharacter_Creation(unsigned char slotnum, BANANA* client)
 		ds_found = -1;
 		free_record = -1;
 
-		for (ds = 0;ds<num_characters;ds++)
+		for (ds = 0;ds < num_characters;ds++)
 		{
 			if (character_data[ds]->guildcard == 0)
 				free_record = ds;
@@ -1578,7 +1591,7 @@ void AckCharacter_Creation(unsigned char slotnum, BANANA* client)
 		cipher_ptr = &client->server_cipher;
 		encryptcopy(client, &PacketE4[0], sizeof(PacketE4));
 		ds_found = -1;
-		for (ds = 0;ds<num_security;ds++)
+		for (ds = 0;ds < num_security;ds++)
 		{
 			if (security_data[ds]->guildcard == client->guildcard)
 			{
@@ -1598,7 +1611,7 @@ void AckCharacter_Creation(unsigned char slotnum, BANANA* client)
 #else
 
 		sprintf_s(myQuery, _countof(myQuery), "SELECT * from character_data WHERE guildcard='%u' AND slot='%u'", client->guildcard, slotnum);
-		//printf ("MySQL query %s\n", myQuery );
+		//printf ("探测 AckCharacter_Creation MySQL 查询 %s\n", myQuery );
 
 		if (!mysql_query(myData, &myQuery[0]))
 		{
@@ -1608,19 +1621,19 @@ void AckCharacter_Creation(unsigned char slotnum, BANANA* client)
 			{
 				if (client->dress_flag == 0)
 				{
-					// Delete character if recreating...
+					// Delete character if recreating...如果重建角色则删除原角色
 					sprintf_s(myQuery, _countof(myQuery), "DELETE from character_data WHERE guildcard='%u' AND slot ='%u'", client->guildcard, slotnum);
 					mysql_query(myData, &myQuery[0]);
 				}
 				else
 				{
-					// Updating character only...
+					// Updating character only...只是更新角色
 					myRow = mysql_fetch_row(myResult);
 					NewE7 = &E7_Work;
 					memcpy(NewE7, myRow[2], sizeof(CHARDATA));
 					memcpy(&NewE7->gcString[0], &clientchar->gcString[0], 0x68);
 					*(long long*)&clientchar->unknown5[0] = *(long long*)&NewE7->unknown6[0];
-					//NewE7->playTime = 0;
+					//NewE7->playTime = 0;新玩家游戏时间归零
 					mysql_real_escape_string(myData, &chardata[0], &client->decryptbuf[0x10], 0x78);
 					mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)NewE7, sizeof(CHARDATA));
 				}
@@ -1666,6 +1679,8 @@ void AckCharacter_Creation(unsigned char slotnum, BANANA* client)
 	else
 		client->todc = 1;
 }
+
+//用于角色选取界面获取小角色信息
 void SendE4_E5(unsigned char slotnum, unsigned char selecting, BANANA* client)
 {
 	int char_exists = 0;
@@ -1675,7 +1690,7 @@ void SendE4_E5(unsigned char slotnum, unsigned char selecting, BANANA* client)
 	{
 #ifdef NO_SQL
 		ds_found = -1;
-		for (ds = 0;ds<num_characters;ds++)
+		for (ds = 0;ds < num_characters;ds++)
 		{
 			if ((character_data[ds]->guildcard == client->guildcard) &&
 				(character_data[ds]->slot == slotnum))
@@ -1692,7 +1707,7 @@ void SendE4_E5(unsigned char slotnum, unsigned char selecting, BANANA* client)
 				mc = (MINICHAR*)&PacketE5[0x00];
 				*(unsigned short*)&PacketE5[0x10] = character_data[ds_found]->data.level;  // Updated level
 				memcpy(&PacketE5[0x14], &character_data[ds_found]->data.gcString[0], 0x70); // Updated data
-				*(unsigned *)&PacketE5[0x84] = character_data[ds_found]->data.playTime;  // Updated playtime
+				*(unsigned*)&PacketE5[0x84] = character_data[ds_found]->data.playTime;  // Updated playtime
 				if (mc->skinFlag)
 				{
 					// In case we got bots that crashed themselves...
@@ -1722,12 +1737,15 @@ void SendE4_E5(unsigned char slotnum, unsigned char selecting, BANANA* client)
 					myRow = mysql_fetch_row(myResult);
 					mc = (MINICHAR*)&PacketE5[0x00];
 					memcpy(&PacketE5[0x10], myRow[2] + 0x36C, 2);  // Updated level 更新等级 16 2 (876-877) 2 2
+																   //上面的意思是&PacketE5[0x10] 第16开始 myRow 2 的 876 877 写进去
 					memcpy(&PacketE5[0x14], myRow[2] + 0x378, 0x70);  // Updated data 更新数据 20 2 (888-991)
+																	  //从gcString[10]
 					memcpy(&PacketE5[0x84], myRow[2] + 0x3E0, 4);     // Updated playtime 更新游戏时间 132 2 (992-995) 4 4
-					//memcpy(&PacketE5[0x84], myRow[2] + 0x3E0, 4);     // Updated playtime 更新游戏时间
+																	  //
+																	  //memcpy(&PacketE5[0x84], myRow[2] + 0x3E0, 4);     // Updated playtime 更新游戏时间
 					if (mc->skinFlag)
 					{
-						// In case we got bots that crashed themselves...
+						// In case we got bots that crashed themselves...万一我们有机器人撞毁自己
 						mc->skin = 0;
 						mc->head = 0;
 						mc->hair = 0;
@@ -1794,7 +1812,7 @@ void SendE4_E5(unsigned char slotnum, unsigned char selecting, BANANA* client)
 					encryptcopy(client, &PacketE4[0], sizeof(PacketE4));
 #ifdef NO_SQL
 					ds_found = -1;
-					for (ds = 0;ds<num_security;ds++)
+					for (ds = 0;ds < num_security;ds++)
 					{
 						if (security_data[ds]->guildcard == client->guildcard)
 						{
@@ -1831,6 +1849,7 @@ void SendE4_E5(unsigned char slotnum, unsigned char selecting, BANANA* client)
 		client->todc = 1;
 }
 
+//接收公会卡
 void SendE8(BANANA* client)
 {
 	if ((client->guildcard) && (!client->sendCheck[SEND_PACKET_E8]))
@@ -1843,6 +1862,7 @@ void SendE8(BANANA* client)
 		client->todc = 1;
 }
 
+//设置公会卡信息
 void SendEB(unsigned char subCommand, unsigned char EBOffset, BANANA* client)
 {
 	unsigned CalcOffset;
@@ -1875,6 +1895,7 @@ void SendEB(unsigned char subCommand, unsigned char EBOffset, BANANA* client)
 		client->todc = 1;
 }
 
+//检查用户是否拥有公会卡ID
 void SendDC(int sendChecksum, unsigned char PacketNum, BANANA* client)
 {
 	unsigned gc_ofs = 0,
@@ -1893,7 +1914,7 @@ void SendDC(int sendChecksum, unsigned char PacketNum, BANANA* client)
 		if (sendChecksum)
 		{
 #ifdef NO_SQL
-			for (ds = 0;ds<num_guilds;ds++)
+			for (ds = 0;ds < num_guilds;ds++)
 			{
 				if (guild_data[ds]->accountid == client->guildcard)
 				{
@@ -1902,7 +1923,7 @@ void SendDC(int sendChecksum, unsigned char PacketNum, BANANA* client)
 						friendid = guild_data[ds]->friendid;
 						sectionid = guild_data[ds]->sectionid;
 						_class = guild_data[ds]->pclass;
-						for (ch = 0;ch<444;ch++)
+						for (ch = 0;ch < 444;ch++)
 							client->guildcard_data[gc_ofs + ch] = 0x00;
 						*(unsigned*)&client->guildcard_data[gc_ofs] = friendid;
 						memcpy(&client->guildcard_data[gc_ofs + 0x04], &guild_data[ds]->friendname, 0x18);
@@ -1921,9 +1942,12 @@ void SendDC(int sendChecksum, unsigned char PacketNum, BANANA* client)
 			}
 #else
 			sprintf_s(myQuery, _countof(myQuery), "SELECT * from guild_data WHERE accountid='%u' ORDER BY priority", client->guildcard);
+
+			//printf("探测 SendDC 指令的用途\n");
 			//printf ("MySQL query %s\n", myQuery );
 
 			// Check to see if the account has any guild cards.
+			//检查帐户是否有公会卡
 
 			if (!mysql_query(myData, &myQuery[0]))
 			{
@@ -1938,7 +1962,7 @@ void SendDC(int sendChecksum, unsigned char PacketNum, BANANA* client)
 						friendid = atoi(myRow[1]);
 						sectionid = (unsigned short)atoi(myRow[5]);
 						_class = (unsigned short)atoi(myRow[6]);
-						for (ch = 0;ch<444;ch++)
+						for (ch = 0;ch < 444;ch++)
 							client->guildcard_data[gc_ofs + ch] = 0x00;
 						*(unsigned*)&client->guildcard_data[gc_ofs] = friendid;
 						memcpy(&client->guildcard_data[gc_ofs + 0x04], myRow[2], 0x18);
@@ -1969,7 +1993,7 @@ void SendDC(int sendChecksum, unsigned char PacketNum, BANANA* client)
 			}
 			else
 				ch = 0x1F74;
-			for (ch;ch<26624;ch++)
+			for (ch;ch < 26624;ch++)
 				PacketDC_Check[ch] = 0x00;
 			PacketDC_Check[0x06] = 0x01;
 			PacketDC_Check[0x07] = 0x02;
@@ -1980,7 +2004,7 @@ void SendDC(int sendChecksum, unsigned char PacketNum, BANANA* client)
 			PacketDC01[0x08] = 0x01;
 			PacketDC01[0x0C] = 0x90;
 			PacketDC01[0x0D] = 0xD5;
-			*(unsigned *)&PacketDC01[0x10] = GCChecksum;
+			*(unsigned*)&PacketDC01[0x10] = GCChecksum;
 			cipher_ptr = &client->server_cipher;
 			encryptcopy(client, &PacketDC01[0], sizeof(PacketDC01));
 		}
@@ -2011,7 +2035,7 @@ void SendDC(int sendChecksum, unsigned char PacketNum, BANANA* client)
 }
 
 /* Ship start authentication */
-
+//舰船服务器认证Key数据代码
 const unsigned char RC4publicKey[32] = {
 	103, 196, 247, 176, 71, 167, 89, 233, 200, 100, 044, 209, 190, 231, 83, 42,
 	6, 95, 151, 28, 140, 243, 130, 61, 107, 234, 243, 172, 77, 24, 229, 156
@@ -2061,7 +2085,7 @@ void ShipSend00(ORANGE* ship)
 
 	ch2 = 0;
 
-	for (ch = 0x18;ch<0x58;ch += 2) // change 32 bytes of the key
+	for (ch = 0x18;ch < 0x58;ch += 2) // change 32 bytes of the key
 	{
 		ShipPacket00[ch] = (unsigned char)rand() % 255;
 		ShipPacket00[ch + 1] = (unsigned char)rand() % 255;
@@ -2077,7 +2101,7 @@ void ShipSend00(ORANGE* ship)
 }
 
 /* Ship authentication result */
-
+//角色名称颜色
 void ShipSend02(unsigned char result, ORANGE* ship)
 {
 	unsigned si, ch, shipNum;
@@ -2088,7 +2112,7 @@ void ShipSend02(unsigned char result, ORANGE* ship)
 	si = 0xFFFFFFFF;
 	if (result == 0x01)
 	{
-		for (ch = 0;ch<serverNumShips;ch++)
+		for (ch = 0;ch < serverNumShips;ch++)
 		{
 			shipNum = serverShipList[ch];
 			tempShip = ships[shipNum];
@@ -2101,30 +2125,31 @@ void ShipSend02(unsigned char result, ORANGE* ship)
 			}
 		}
 	}
-	*(unsigned *)&ship->encryptbuf[0x02] = si;
-	*(unsigned *)&ship->encryptbuf[0x06] = *(unsigned *)&ship->shipAddr[0];
-	*(unsigned *)&ship->encryptbuf[0x0A] = quest_numallows;
+	*(unsigned*)&ship->encryptbuf[0x02] = si;
+	*(unsigned*)&ship->encryptbuf[0x06] = *(unsigned*)&ship->shipAddr[0];
+	*(unsigned*)&ship->encryptbuf[0x0A] = quest_numallows;
 	memcpy(&ship->encryptbuf[0x0E], quest_allow, quest_numallows * 4);
 	si = 0x0E + (quest_numallows * 4);
-	*(unsigned *)&ship->encryptbuf[si] = normalName;
+	*(unsigned*)&ship->encryptbuf[si] = normalName;
 	si += 4;
-	*(unsigned *)&ship->encryptbuf[si] = localName;
+	*(unsigned*)&ship->encryptbuf[si] = localName;
 	si += 4;
-	*(unsigned *)&ship->encryptbuf[si] = globalName;
+	*(unsigned*)&ship->encryptbuf[si] = globalName;
 	si += 4;
 	compressShipPacket(ship, &ship->encryptbuf[0x00], si);
 }
 
+//防止用户在不同的船出现
 void ShipSend08(unsigned gcn, ORANGE* ship)
 {
 	// Tell the other ships this user logged on and to disconnect him/her if they're still active...
 	ship->encryptbuf[0x00] = 0x08;
 	ship->encryptbuf[0x01] = 0x00;
-	*(unsigned *)&ship->encryptbuf[0x02] = gcn;
+	*(unsigned*)&ship->encryptbuf[0x02] = gcn;
 	compressShipPacket(ship, &ship->encryptbuf[0x00], 0x06);
 }
 
-
+//发送舰船列表代码
 void ShipSend0D(unsigned char command, ORANGE* ship)
 {
 	unsigned shipNum;
@@ -2144,15 +2169,15 @@ void ShipSend0D(unsigned char command, ORANGE* ship)
 		memcpy(&ship->encryptbuf[0x06], &PacketA0Data[0], tempdw);
 		ship->encryptbuf[0x01] = 0x01;
 		tempdw += 6;
-		for (ch = 0;ch<serverNumShips;ch++)
+		for (ch = 0;ch < serverNumShips;ch++)
 		{
 			shipNum = serverShipList[ch];
 			tship = ships[shipNum];
 			if ((tship->shipSockfd >= 0) && (tship->authed == 1))
 			{
-				*(unsigned *)&ship->encryptbuf[tempdw] = tship->shipID;
+				*(unsigned*)&ship->encryptbuf[tempdw] = tship->shipID;
 				tempdw += 4;
-				*(unsigned *)&ship->encryptbuf[tempdw] = *(unsigned *)&tship->shipAddr[0];
+				*(unsigned*)&ship->encryptbuf[tempdw] = *(unsigned*)&tship->shipAddr[0];
 				tempdw += 4;
 				*(unsigned short*)&ship->encryptbuf[tempdw] = (unsigned short)tship->shipPort;
 				tempdw += 2;
@@ -2167,7 +2192,7 @@ void ShipSend0D(unsigned char command, ORANGE* ship)
 	}
 }
 
-
+//用于修复物品数据
 void FixItem(ITEM* i)
 {
 	unsigned ch3;
@@ -2315,7 +2340,7 @@ void ShipProcessPacket(ORANGE* ship)
 		//另外，重置playerCount。
 		//
 		pass = 1;
-		for (sv = 0x06;sv<0x14;sv++)
+		for (sv = 0x06;sv < 0x14;sv++)
 			if (ship->decryptbuf[sv] != ShipPacket00[sv - 0x04])
 			{
 				// Yadda
@@ -2337,13 +2362,13 @@ void ShipProcessPacket(ORANGE* ship)
 			shipOK = 1;
 
 			memcpy(&ship->name[0], &ship->decryptbuf[0x2C], 12);
-			ship->name[13] = 0x00;
-			ship->playerCount = *(unsigned *)&ship->decryptbuf[0x38];
+			ship->name[14] = 0x00;
+			ship->playerCount = *(unsigned*)&ship->decryptbuf[0x38];
 			if (ship->decryptbuf[0x3C] == 0x00)
-				*(unsigned *)&ship->shipAddr[0] = *(unsigned *)&ship->listenedAddr[0];
+				*(unsigned*)&ship->shipAddr[0] = *(unsigned*)&ship->listenedAddr[0];
 			else
-				*(unsigned *)&ship->shipAddr[0] = *(unsigned *)&ship->decryptbuf[0x3C];
-			ship->shipAddr[5] = 0;
+				*(unsigned*)&ship->shipAddr[0] = *(unsigned*)&ship->decryptbuf[0x3C];
+			ship->shipAddr[6] = 0;
 			ship->shipPort = *(unsigned short*)&ship->decryptbuf[0x40];
 
 			/*
@@ -2374,7 +2399,7 @@ void ShipProcessPacket(ORANGE* ship)
 				// if ((ship->shipAddr[0] == 127) && (ship->shipAddr[1] == 0) &&
 				//    (ship->shipAddr[2] == 0)   && (ship->shipAddr[3] == 1)) shipOK = 0;
 
-				shop_checksum = *(unsigned *)&ship->decryptbuf[0x42];
+				shop_checksum = *(unsigned*)&ship->decryptbuf[0x42];
 				memcpy(&check_key[0], &ship->decryptbuf[0x4A], 32);
 
 				if (shop_checksum != 0xa3552fda)
@@ -2386,12 +2411,12 @@ void ShipProcessPacket(ORANGE* ship)
 				else
 					if (shipOK)
 					{
-						ship->key_index = *(unsigned *)&ship->decryptbuf[0x46];
+						ship->key_index = *(unsigned*)&ship->decryptbuf[0x46];
 
 						// update max ship key count on the fly
 #ifdef NO_SQL
 						max_ship_keys = 0;
-						for (ds = 0;ds<num_shipkeys;ds++)
+						for (ds = 0;ds < num_shipkeys;ds++)
 						{
 							if (ship_data[ds]->idx >= max_ship_keys)
 								max_ship_keys = ship_data[ds]->idx;
@@ -2438,12 +2463,12 @@ void ShipProcessPacket(ORANGE* ship)
 #ifdef NO_SQL
 								ds_found = -1;
 
-								for (ds = 0;ds<num_shipkeys;ds++)
+								for (ds = 0;ds < num_shipkeys;ds++)
 								{
 									if (ship_data[ds]->idx == ship->key_index)
 									{
 										ds_found = ds;
-										for (ch2 = 0;ch2<32;ch2++)
+										for (ch2 = 0;ch2 < 32;ch2++)
 											if (ship_data[ds]->rc4key[ch2] != check_key[ch2])
 											{
 												ds_found = -1;
@@ -2470,7 +2495,7 @@ void ShipProcessPacket(ORANGE* ship)
 									key_exists = (int)mysql_num_rows(myResult);
 									myRow = mysql_fetch_row(myResult);
 									memcpy(&check_key2[0], myRow[0], 32); // 1024-bit key
-									for (ch2 = 0;ch2<32;ch2++)
+									for (ch2 = 0;ch2 < 32;ch2++)
 										if (check_key2[ch2] != check_key[ch2])
 										{
 											key_exists = 0;
@@ -2493,10 +2518,10 @@ void ShipProcessPacket(ORANGE* ship)
 
 									memset(&sa, 0, sizeof(sa));
 									sa.sin_family = AF_INET;
-									*(unsigned *)&sa.sin_addr.s_addr = *(unsigned *)&ship->shipAddr[0];
+									*(unsigned*)&sa.sin_addr.s_addr = *(unsigned*)&ship->shipAddr[0];
 									sa.sin_port = htons((unsigned short)ship->shipPort);
 
-									if ((tempfd >= 0) && (connect(tempfd, (struct sockaddr*) &sa, sizeof(sa)) >= 0))
+									if ((tempfd >= 0) && (connect(tempfd, (struct sockaddr*)&sa, sizeof(sa)) >= 0))
 									{
 										closesocket(tempfd);
 #endif
@@ -2517,7 +2542,7 @@ void ShipProcessPacket(ORANGE* ship)
 
 										// change keys
 
-										for (ch2 = 0;ch2<128;ch2++)
+										for (ch2 = 0;ch2 < 128;ch2++)
 											if (ship->key_change[ch2] != -1)
 												ship->user_key[ch2] = (unsigned char)ship->key_change[ch2]; // update the key
 
@@ -2550,13 +2575,16 @@ void ShipProcessPacket(ORANGE* ship)
 			}
 		}
 		break;
+		//printf("探测 ShipProcessPacket 0x01 指令的用途\n");
 	case 0x03:
 		//WriteLog("登陆服务器未知 0x03");
+		printf("探测 ShipProcessPacket 0x03 指令的用途\n");
 		break;
-	case 0x04:// 角色数据相关指令
+	case 0x04:// 角色公会数据相关指令
 		switch (ship->decryptbuf[0x05])
 		{
-		case 0x00:// 发送完整的角色数据
+			// 发送完整的角色数据 应该是换船的时候触发
+		case 0x00:
 		{
 			// Send full player data here.
 			unsigned guildcard;
@@ -2567,12 +2595,15 @@ void ShipProcessPacket(ORANGE* ship)
 			int teamid;
 			unsigned short privlevel;
 			CHARDATA* PlayerData;
+			CHALLENGEDATA* ChallengeData;
+			BATTLEDATA* BattleData;
 			unsigned shipid;
 			int sockfd;
 
 			guildcard = *(unsigned*)&ship->decryptbuf[0x06];
+
 			slotnum = *(unsigned short*)&ship->decryptbuf[0x0A];
-			sockfd = *(int *)&ship->decryptbuf[0x0C];
+			sockfd = *(int*)&ship->decryptbuf[0x0C];
 			shipid = *(unsigned*)&ship->decryptbuf[0x10];
 
 			ship->encryptbuf[0x00] = 0x04;
@@ -2586,7 +2617,7 @@ void ShipProcessPacket(ORANGE* ship)
 
 			ds_found = -1;
 
-			for (ds = 0;ds<num_characters;ds++)
+			for (ds = 0;ds < num_characters;ds++)
 			{
 				if ((character_data[ds]->guildcard == guildcard) &&
 					(character_data[ds]->slot == slotnum))
@@ -2609,7 +2640,7 @@ void ShipProcessPacket(ORANGE* ship)
 
 				ds_found = -1;
 
-				for (ds = 0;ds<num_bankdata;ds++)
+				for (ds = 0;ds < num_bankdata;ds++)
 				{
 					if (bank_data[ds]->guildcard == guildcard)
 					{
@@ -2634,7 +2665,7 @@ void ShipProcessPacket(ORANGE* ship)
 				size += sizeof(BANK);
 
 				ds_found = 1;
-				for (ds = 0;ds<num_accounts;ds++)
+				for (ds = 0;ds < num_accounts;ds++)
 				{
 					if (account_data[ds]->guildcard == guildcard)
 					{
@@ -2654,7 +2685,7 @@ void ShipProcessPacket(ORANGE* ship)
 					PlayerData->teamID = (unsigned)teamid;
 					PlayerData->privilegeLevel = privlevel;
 					ds_found = -1;
-					for (ds = 0;ds<num_teams;ds++)
+					for (ds = 0;ds < num_teams;ds++)
 					{
 						if (team_data[ds]->teamid == teamid)
 						{
@@ -2678,26 +2709,31 @@ void ShipProcessPacket(ORANGE* ship)
 
 			sprintf_s(myQuery, _countof(myQuery), "SELECT * from character_data WHERE guildcard='%u' AND slot='%u'", guildcard, slotnum);
 
-			debug ("MySQL查询正在执行中... %s ", &myQuery[0] );
+			//debug ("MySQL查询正在执行中... %s ", &myQuery[0] );
 
 			if (!mysql_query(myData, &myQuery[0]))
 			{
 				myResult = mysql_store_result(myData);
 				char_exists = (int)mysql_num_rows(myResult);
 
+				//数据包大小 12 字节
 				size = 0x0C;
 
+				//定义PlayerData为角色数据查询
 				PlayerData = (CHARDATA*)&ship->encryptbuf[0x0C];
 
+				ChallengeData = (CHALLENGEDATA*)&ship->decryptbuf[0x0C];
+
+				BattleData = (BATTLEDATA*)&ship->decryptbuf[0x0C];
+
+				//更新银行仓库信息（包括公共银行）
 				if (char_exists)
 				{
 					myRow = mysql_fetch_row(myResult);
 					memcpy(&ship->encryptbuf[0x0C], myRow[2], sizeof(CHARDATA));
 					size += sizeof(CHARDATA);
 					ship->encryptbuf[0x01] = 0x01; // success 成功
-
 												   // Get the common bank or create it 获得公共银行或创建它
-
 					sprintf_s(myQuery, _countof(myQuery), "SELECT * from bank_data WHERE guildcard='%u'", guildcard);
 
 					//debug ("MySQL query executing ... %s ", &myQuery[0] );
@@ -2736,6 +2772,16 @@ void ShipProcessPacket(ORANGE* ship)
 					size += sizeof(BANK);
 
 
+					//memcpy(&ship->encryptbuf[0x0C + 0x2CC0], &ChallengeData->challengeData, sizeof(CHALLENGEDATA));
+
+
+					//size += sizeof(CHALLENGEDATA);
+
+					//memcpy(&ship->encryptbuf[0x0C + 0x2E54], &BattleData->battleData, sizeof(BATTLEDATA));
+
+
+					//size += sizeof(BATTLEDATA);
+
 					// Update the last used character info... 更新上一次使用时的角色信息
 
 					mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&PlayerData->name[0], 24);
@@ -2743,28 +2789,33 @@ void ShipProcessPacket(ORANGE* ship)
 					mysql_query(myData, &myQuery[0]);
 
 				}
-				else
-					ship->encryptbuf[0x01] = 0x02; // fail 发送失败？
+				else {
+					ship->encryptbuf[0x01] = 0x02; // 失败指令？
+				}
 
 				mysql_free_result(myResult);
 
+				//解包舰船发来的数据 0x01 开始 如果不等于 2
 				if (ship->encryptbuf[0x01] != 0x02)
 				{
+					//公会信息查询 teamid 公会ID ,privlevel 公会权限
 					sprintf_s(myQuery, _countof(myQuery), "SELECT teamid,privlevel from account_data WHERE guildcard='%u'", guildcard);
 
+					//如果未开始查询
 					if (!mysql_query(myData, &myQuery[0]))
 					{
 						myResult = mysql_store_result(myData);
 						myRow = mysql_fetch_row(myResult);
 
-						teamid = atoi(myRow[0]);
-						privlevel = atoi(myRow[1]);
+						teamid = atoi(myRow[0]); //(表示 ascii to integer)是把字符串myRow[0]转换成整型数teamid
+						privlevel = atoi(myRow[1]);//(表示 ascii to integer)是把字符串myRow[1]转换成整型数privlevel
 
 						mysql_free_result(myResult);
 
+						//如果在公会中或拥有公会
 						if (teamid != -1)
 						{
-							debug ("正在检索一些垃圾... ");
+							//debug ("正在检索一些信息 team_data 数据表操作... ");
 							// Store the team information in the E7 packet...将团队信息存储在E7数据包中。。。
 							PlayerData->serial_number = PlayerData->serial_number;
 							PlayerData->teamID = (unsigned)teamid;
@@ -2786,24 +2837,313 @@ void ShipProcessPacket(ORANGE* ship)
 							memset(&PlayerData->serial_number, 0, 0x83C);
 					}
 					else
-						ship->encryptbuf[0x01] = 0x02; // fail
+						ship->encryptbuf[0x01] = 0x03; // 03指令？
 
-					PlayerData->teamRank = 0x00986C84; // ??
+					PlayerData->teamRank = 0x00986C84; // ?? 应该是排行榜未完成的参数了
 					memset(&PlayerData->teamRewards[0], 0xFF, 4);
-				}
-
+				}				//解包舰船发来的数据 0x01 开始 如果不等于 2
 				compressShipPacket(ship, &ship->encryptbuf[0x00], size);
 			}
 			else
-				debug("无法为用户 %u 选择角色信息", guildcard);
+				debug("无法为用户 %u 更新银行数据", guildcard);
+
+
+
+			////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+			/*int challengeData_exists = 0;
+
+			ship->encryptbuf[0x00] = 0x04;
+
+			*(unsigned*)&ship->encryptbuf[0x02] = *(unsigned*)&ship->decryptbuf[0x06];
+			*(unsigned short*)&ship->encryptbuf[0x06] = *(unsigned short*)&ship->decryptbuf[0x0A];
+			*(unsigned*)&ship->encryptbuf[0x08] = *(unsigned*)&ship->decryptbuf[0x0C];
+
+			sprintf_s(myQuery, _countof(myQuery), "SELECT * from character_data WHERE guildcard='%u' AND slot='%u'", guildcard, slotnum);
+
+			//debug ("MySQL查询正在执行中... %s ", &myQuery[0] );
+
+			if (!mysql_query(myData, &myQuery[0]))
+			{
+				myResult = mysql_store_result(myData);
+				char_exists = (int)mysql_num_rows(myResult);
+
+				//数据包大小 12 字节
+				size = 0x0C;
+
+				//定义PlayerData为角色数据查询
+				PlayerData = (CHARDATA*)&ship->encryptbuf[0x0C];
+
+				if (char_exists)
+				{
+					myRow = mysql_fetch_row(myResult);
+					memcpy(&ship->encryptbuf[0x0C], myRow[2], sizeof(CHARDATA));
+					size += sizeof(CHARDATA);
+					ship->encryptbuf[0x01] = 0x01; // success 成功
+												   // Get the common bank or create it 获得公共银行或创建它
+					//查询挑战数据
+					sprintf_s(myQuery, _countof(myQuery), "SELECT * from challenge_data WHERE guildcard='%u' AND slot='%u'", guildcard, slotnum);
+
+					//如果未开始查询
+					if (!mysql_query(myData, &myQuery[0]))
+					{
+						myResult = mysql_store_result(myData);
+						challengeData_exists = (int)mysql_num_rows(myResult);
+
+						//如果在数据中搜索到角色数据
+						if (challengeData_exists)
+						{
+							myRow = mysql_fetch_row(myResult);
+							memcpy(&ship->encryptbuf[0x0C + sizeof(CHARDATA)], myRow[2], sizeof(CHALLENGEDATA));
+						}
+						else
+						{
+							debug ("正在检索一些信息 character_data 数据表操作... ");
+							// 将挑战数据存储在E7数据包中。。。
+							memcpy(&ship->encryptbuf[0x0C + sizeof(CHARDATA)], &ship->decryptbuf[0x0C + 0x2CC0], sizeof(CHALLENGEDATA));
+							mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&ship->decryptbuf[0x0C + 0x2CC0], sizeof(CHALLENGEDATA));
+							strd(&E7chardata[0]);
+							sprintf_s(myQuery, _countof(myQuery), "INSERT into challenge_data (guildcard, slot, data) VALUES ('%u','%u','%s')", guildcard, slotnum, (char*)&E7chardata[0]);
+
+							debug("完成 character_data 数据表操作... ");
+							if (mysql_query(myData, &myQuery[0]))
+							{
+								debug("无法为公会卡 %u 创建挑战数据.", guildcard);
+								//return;
+							}
+						}
+					}
+					else
+					{
+						memcpy(&ship->encryptbuf[0x0C + sizeof(CHARDATA)], &ship->decryptbuf[0x0C + 0x2CC0], sizeof(CHALLENGEDATA));
+					}
+
+					size += sizeof(CHALLENGEDATA);
+					// Update the last used character info... 更新上一次使用时的角色信息
+
+					mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&PlayerData->name[0], 24);
+					sprintf_s(myQuery, _countof(myQuery), "UPDATE account_data SET lastchar = '%s' WHERE guildcard = '%u'", (char*)&E7chardata[0], PlayerData->guildCard);
+					mysql_query(myData, &myQuery[0]);
+				}
+				else {
+					ship->encryptbuf[0x01] = 0x02; // 失败指令？
+				}
+
+				//解包舰船发来的数据 0x01 开始 如果不等于 2
+				if (ship->encryptbuf[0x01] != 0x02)
+				{
+					//公会信息查询 teamid 公会ID ,privlevel 公会权限
+					sprintf_s(myQuery, _countof(myQuery), "SELECT teamid,privlevel from account_data WHERE guildcard='%u'", guildcard);
+
+					//如果未开始查询
+					if (!mysql_query(myData, &myQuery[0]))
+					{
+						myResult = mysql_store_result(myData);
+						myRow = mysql_fetch_row(myResult);
+
+						teamid = atoi(myRow[0]); //(表示 ascii to integer)是把字符串myRow[0]转换成整型数teamid
+						privlevel = atoi(myRow[1]);//(表示 ascii to integer)是把字符串myRow[1]转换成整型数privlevel
+
+						mysql_free_result(myResult);
+
+						//如果在公会中或拥有公会
+						if (teamid != -1)
+						{
+							//debug ("正在检索一些信息 team_data 数据表操作... ");
+							// Store the team information in the E7 packet...将团队信息存储在E7数据包中。。。
+							PlayerData->serial_number = PlayerData->serial_number;
+							PlayerData->teamID = (unsigned)teamid;
+							PlayerData->privilegeLevel = privlevel;
+							sprintf_s(myQuery, _countof(myQuery), "SELECT name,flag from team_data WHERE teamid = '%i'", teamid);
+							if (!mysql_query(myData, &myQuery[0]))
+							{
+								myResult = mysql_store_result(myData);
+								myRow = mysql_fetch_row(myResult);
+								PlayerData->teamName[0] = 0x09;
+								PlayerData->teamName[2] = 0x45;
+								memcpy(&PlayerData->teamName[4], myRow[0], 24);
+								memcpy(&PlayerData->teamFlag[0], myRow[1], 2048);
+
+								mysql_free_result(myResult);
+							}
+						}
+						else
+							memset(&PlayerData->serial_number, 0, 0x83C);
+					}
+					else
+						ship->encryptbuf[0x01] = 0x03; // 03指令？
+
+					PlayerData->teamRank = 0x00986C84; // ?? 应该是排行榜未完成的参数了
+					memset(&PlayerData->teamRewards[0], 0xFF, 4);
+				}				//解包舰船发来的数据 0x01 开始 如果不等于 2
+				compressShipPacket(ship, &ship->encryptbuf[0x00], size);
+			}
+			else {
+				debug("无法为用户 %u 更新对战数据", guildcard);
+			}
+
+			int battleData_exists = 0;
+
+			ship->encryptbuf[0x00] = 0x04;
+
+			*(unsigned*)&ship->encryptbuf[0x02] = *(unsigned*)&ship->decryptbuf[0x06];
+			*(unsigned short*)&ship->encryptbuf[0x06] = *(unsigned short*)&ship->decryptbuf[0x0A];
+			*(unsigned*)&ship->encryptbuf[0x08] = *(unsigned*)&ship->decryptbuf[0x0C];
+
+			sprintf_s(myQuery, _countof(myQuery), "SELECT * from character_data WHERE guildcard='%u' AND slot='%u'", guildcard, slotnum);
+
+			//debug ("MySQL查询正在执行中... %s ", &myQuery[0] );
+
+			if (!mysql_query(myData, &myQuery[0]))
+			{
+				myResult = mysql_store_result(myData);
+				char_exists = (int)mysql_num_rows(myResult);
+
+				//数据包大小 12 字节
+				size = 0x0C;
+
+				//定义PlayerData为角色数据查询
+				PlayerData = (CHARDATA*)&ship->encryptbuf[0x0C];
+
+				if (char_exists)
+				{
+					myRow = mysql_fetch_row(myResult);
+					memcpy(&ship->encryptbuf[0x0C], myRow[2], sizeof(CHARDATA));
+					size += sizeof(CHARDATA);
+					ship->encryptbuf[0x01] = 0x01; // success 成功
+												   // Get the common bank or create it 获得公共银行或创建它
+					//查询挑战数据
+					sprintf_s(myQuery, _countof(myQuery), "SELECT * from battle_data WHERE guildcard='%u' AND slot='%u'", guildcard, slotnum);
+
+					//如果未开始查询
+					if (!mysql_query(myData, &myQuery[0]))
+					{
+						myResult = mysql_store_result(myData);
+						battleData_exists = (int)mysql_num_rows(myResult);
+
+						//如果在数据中搜索到角色数据
+						if (battleData_exists)
+						{
+							myRow = mysql_fetch_row(myResult);
+							memcpy(&ship->encryptbuf[0x0C + sizeof(CHARDATA)], myRow[2], sizeof(BATTLEDATA));
+						}
+						else
+						{
+							//debug ("正在检索一些信息 character_data 数据表操作... ");
+							// 将挑战数据存储在E7数据包中。。。
+							memcpy(&ship->encryptbuf[0x0C + sizeof(CHARDATA)], &ship->decryptbuf[0x0C + 0x2E54], sizeof(BATTLEDATA));
+							mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&ship->decryptbuf[0x0C + 0x2E54], sizeof(BATTLEDATA));
+							sprintf_s(myQuery, _countof(myQuery), "INSERT into battle_data (guildcard, slot, data) VALUES ('%u','%u','%s')", guildcard, slotnum, (char*)&E7chardata[0]);
+
+							if (mysql_query(myData, &myQuery[0]))
+							{
+								debug("无法为公会卡 %u 创建挑战数据.", guildcard);
+								//return;
+							}
+						}
+					}
+					else
+					{
+						memcpy(&ship->encryptbuf[0x0C + sizeof(CHARDATA)], &ship->decryptbuf[0x0C + 0x2E54], sizeof(BATTLEDATA));
+					}
+
+					size += sizeof(BATTLEDATA);
+					// Update the last used character info... 更新上一次使用时的角色信息
+
+					mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&PlayerData->name[0], 24);
+					sprintf_s(myQuery, _countof(myQuery), "UPDATE account_data SET lastchar = '%s' WHERE guildcard = '%u'", (char*)&E7chardata[0], PlayerData->guildCard);
+					mysql_query(myData, &myQuery[0]);
+				}
+				else {
+					ship->encryptbuf[0x01] = 0x02; // 失败指令？
+				}
+
+				//解包舰船发来的数据 0x01 开始 如果不等于 2
+				if (ship->encryptbuf[0x01] != 0x02)
+				{
+					//公会信息查询 teamid 公会ID ,privlevel 公会权限
+					sprintf_s(myQuery, _countof(myQuery), "SELECT teamid,privlevel from account_data WHERE guildcard='%u'", guildcard);
+
+					//如果未开始查询
+					if (!mysql_query(myData, &myQuery[0]))
+					{
+						myResult = mysql_store_result(myData);
+						myRow = mysql_fetch_row(myResult);
+
+						teamid = atoi(myRow[0]); //(表示 ascii to integer)是把字符串myRow[0]转换成整型数teamid
+						privlevel = atoi(myRow[1]);//(表示 ascii to integer)是把字符串myRow[1]转换成整型数privlevel
+
+						mysql_free_result(myResult);
+
+						//如果在公会中或拥有公会
+						if (teamid != -1)
+						{
+							//debug ("正在检索一些信息 team_data 数据表操作... ");
+							// Store the team information in the E7 packet...将团队信息存储在E7数据包中。。。
+							PlayerData->serial_number = PlayerData->serial_number;
+							PlayerData->teamID = (unsigned)teamid;
+							PlayerData->privilegeLevel = privlevel;
+							sprintf_s(myQuery, _countof(myQuery), "SELECT name,flag from team_data WHERE teamid = '%i'", teamid);
+							if (!mysql_query(myData, &myQuery[0]))
+							{
+								myResult = mysql_store_result(myData);
+								myRow = mysql_fetch_row(myResult);
+								PlayerData->teamName[0] = 0x09;
+								PlayerData->teamName[2] = 0x45;
+								memcpy(&PlayerData->teamName[4], myRow[0], 24);
+								memcpy(&PlayerData->teamFlag[0], myRow[1], 2048);
+
+								mysql_free_result(myResult);
+							}
+						}
+						else
+							memset(&PlayerData->serial_number, 0, 0x83C);
+					}
+					else
+						ship->encryptbuf[0x01] = 0x03; // 03指令？
+
+					PlayerData->teamRank = 0x00986C84; // ?? 应该是排行榜未完成的参数了
+					memset(&PlayerData->teamRewards[0], 0xFF, 4);
+				}				//解包舰船发来的数据 0x01 开始 如果不等于 2
+				compressShipPacket(ship, &ship->encryptbuf[0x00], size);
+			}
+			else {
+				debug("无法为用户 %u 更新对战数据", guildcard);
+			}*/
+
+			///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+			//此处做为客户端的数据回传至单独的数据库存储12.30
+			/*
+			debug("尝试上传角色 %u 的 对战模式 数据至数据库\n\n", guildcard);
+			mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&ship->decryptbuf[0x0C + 0x2CC0], sizeof(CHALLENGEDATA));
+			sprintf_s(myQuery, _countof(myQuery), "INSERT INTO challenge_data (guildcard,slot,data) VALUES ('%u','%u','%s')", guildcard, slotnum, &E7chardata[0]);
+			strd(&ship->decryptbuf[0x0C + 0x2CC0]);//已经定义该函数(unsigned char*)
+			if (mysql_query(myData, &myQuery[0]))
+			{
+				debug("无法为更新公会卡 %u 的挑战数据. \n", guildcard);
+				//return;
+			}
+
+			WriteLog("尝试上传角色 %u 的 挑战模式 数据至数据库\n\n", guildcard);
+			mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&ship->decryptbuf[0x0C + 0x2E54], sizeof(BATTLEDATA));
+			sprintf_s(myQuery, _countof(myQuery), "UPDATE battle_data set data = '%s' WHERE guildcard = '%u' AND slot = '%u'", &E7chardata[0], guildcard, slotnum);
+			if (mysql_query(myData, &myQuery[0]))
+			{
+				debug("无法保存公会卡 %u 的对战数据. \n", guildcard);
+				//return;
+			}*/
+			///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif
 		}
+		//printf("探测 ShipProcessPacket 0x04 指令的用途 用户恢复银行 工会 数据\n");
 		break;
 		case 0x02:
 		{
 			unsigned guildcard, ch2;
 			unsigned short slotnum;
 			CHARDATA* character;
+			CHALLENGEDATA* ChallengeData;
+			BATTLEDATA* BattleData;
+
 			unsigned short maxFace, maxHair, maxHairColorRed, maxHairColorBlue, maxHairColorGreen,
 				maxCostume, maxSkin, maxHead;
 
@@ -2812,12 +3152,16 @@ void ShipProcessPacket(ORANGE* ship)
 
 			character = (CHARDATA*)&ship->decryptbuf[0x0C];
 
+			ChallengeData = (CHALLENGEDATA*)&ship->decryptbuf[0x0C];
+
+			BattleData = (BATTLEDATA*)&ship->decryptbuf[0x0C];
+
 			// Update common bank (A common bank SHOULD exist since they've logged on...) 
 			// 更新共同银行（一个共同的银行应该存在，因为他们已经登录） 
 
 #ifdef NO_SQL
 
-			for (ds = 0;ds<num_bankdata;ds++)
+			for (ds = 0;ds < num_bankdata;ds++)
 			{
 				if (bank_data[ds]->guildcard == guildcard)
 				{
@@ -2828,16 +3172,34 @@ void ShipProcessPacket(ORANGE* ship)
 			}
 
 #else
-
-			mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&ship->decryptbuf[0x0C + sizeof(CHARDATA)], sizeof(BANK));
-			sprintf_s(myQuery, _countof(myQuery), "UPDATE bank_data set data = '%s' WHERE guildcard = '%u'", (char*)&E7chardata[0], guildcard);
+			/*
+			mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&ship->decryptbuf[0x0C + sizeof(CHARDATA)], sizeof(CHALLENGEDATA));
+			sprintf_s(myQuery, _countof(myQuery), "UPDATE character_data set data = '%s' WHERE guildcard = '%u' AND slot='%u'", (char*)&E7chardata[0], guildcard, slotnum);
 			if (mysql_query(myData, &myQuery[0]))
 			{
-				debug("无法保存公会卡的公共银行 %u. \n", guildcard);
+				debug("无法保存公会卡 %u 的仓库数据. \n", guildcard);
 				return;
 			}
 
+			mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&ship->decryptbuf[0x0C + sizeof(CHARDATA)], sizeof(BATTLEDATA));
+			sprintf_s(myQuery, _countof(myQuery), "UPDATE character_data set data = '%s' WHERE guildcard = '%u' AND slot='%u'", (char*)&E7chardata[0], guildcard, slotnum);
+			if (mysql_query(myData, &myQuery[0]))
+			{
+				debug("无法保存公会卡 %u 的仓库数据. \n", guildcard);
+				return;
+			}*/
+			//mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&ship->decryptbuf[0x0C + 0x2CC0], sizeof(CHALLENGEDATA));
+			//mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&ship->decryptbuf[0x0C + 0x2E54], sizeof(BATTLEDATA));
+			mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&ship->decryptbuf[0x0C + sizeof(CHARDATA)], sizeof(BANK));
+
+			sprintf_s(myQuery, _countof(myQuery), "UPDATE bank_data set data = '%s' WHERE guildcard = '%u'", (char*)&E7chardata[0], guildcard);
+			if (mysql_query(myData, &myQuery[0]))
+			{
+				debug("无法保存公会卡 %u 的仓库数据. \n", guildcard);
+				return;
+			}
 #endif
+
 			// Repair malformed data修复格式错误的数据
 
 
@@ -2905,20 +3267,20 @@ void ShipProcessPacket(ORANGE* ship)
 
 			// Let's fix hacked mags and weapons
 			//让我们修复黑客攻击的武器和武器
-			for (ch2 = 0;ch2<character->inventoryUse;ch2++)
+			for (ch2 = 0;ch2 < character->inventoryUse;ch2++)
 			{
 				if (character->inventory[ch2].in_use)
 					FixItem(&character->inventory[ch2].item);
 			}
 
-			for (ch2 = 0;ch2<character->bankUse;ch2++)
+			for (ch2 = 0;ch2 < character->bankUse;ch2++)
 			{
 				if (character->inventory[ch2].in_use)
 					FixItem((ITEM*)&character->bankInventory[ch2]);
 			}
 
 #ifdef NO_SQL
-			for (ds = 0;ds<num_characters;ds++)
+			for (ds = 0;ds < num_characters;ds++)
 			{
 				if ((character_data[ds]->guildcard == guildcard) &&
 					(character_data[ds]->slot == slotnum))
@@ -2929,11 +3291,43 @@ void ShipProcessPacket(ORANGE* ship)
 				}
 			}
 #else
+
+			//memcpy(&ChallengeData->challengeData[0], &ship->decryptbuf[0x0C + 0x2CC0], 320);
+
+			//memcpy(&character->challengeData[0], &ship->decryptbuf[0x0C + 0x2CC0], 320);//取回角色挑战数据
+			//memcpy(&character->battleData[0], &ship->decryptbuf[0x0C + 0x2E54], 88);//取回角色对战数据
+
+
+			//mysql_real_escape_string(myData, &E7chardata[0x2CC0], (unsigned char*)&ship->decryptbuf[0x0C + 0x2CC0], sizeof(CHALLENGEDATA));
+
+			//debug("保存用户 %u 槽位:(%02x) 的挑战信息", guildcard, slotnum);
+
+			//mysql_real_escape_string(myData, &E7chardata[0x2E50], (unsigned char*)&ship->decryptbuf[0x0C + 0x2E50], sizeof(BATTLEDATA));
+			//memcpy(&ChallengeData->challengeData, &character->name, sizeof(CHALLENGEDATA));
+			//mysql_real_escape_string(myData, &E7chardata[0x2CC0], (unsigned char*)&ChallengeData->challengeData[0], sizeof(CHALLENGEDATA));
+
+			//memcpy(&BattleData->battleData, &character->gcString, sizeof(BATTLEDATA));
+			//mysql_real_escape_string(myData, &E7chardata[0x2E50], (unsigned char*)&BattleData->battleData[0], sizeof(BATTLEDATA));
+
+			//mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&ship->decryptbuf[0x0C + sizeof(CHARDATA)], sizeof(BANK));
+			//if (strcmp(&ChallengeData->challengeData, &character->challengeData) != 0) {
+			//memcpy(&ChallengeData->challengeData, &character->challengeData, sizeof(CHALLENGEDATA));
+			mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&ship->decryptbuf[0x0C + 0x2CC0], sizeof(CHALLENGEDATA));
+			debug("保存用户 %u 槽位:(%02x) 的挑战数据\n", guildcard, slotnum);
+			//}
+
+			//if (&BattleData->battleData != &character->battleData) {
+			//memcpy(&BattleData->battleData, &character->battleData, sizeof(BATTLEDATA));
+			mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&ship->decryptbuf[0x0C + 0x2E50], sizeof(BATTLEDATA));
+			//debug("保存用户 %u 槽位:(%02x) 的对战数据\n", guildcard, slotnum);
+			//}
+
 			mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&ship->decryptbuf[0x0C], sizeof(CHARDATA));
+
 			sprintf_s(myQuery, _countof(myQuery), "UPDATE character_data set data = '%s' WHERE guildcard = '%u' AND slot = '%u'", (char*)&E7chardata[0], guildcard, slotnum);
 			if (mysql_query(myData, &myQuery[0]))
 			{
-				debug("无法保存公会卡用户 %u 槽位:(%02x) 的角色信息", guildcard, slotnum);
+				debug("无法保存用户 %u 槽位:(%02x) 的角色信息", guildcard, slotnum);
 				return;
 			}
 			else
@@ -2947,7 +3341,7 @@ void ShipProcessPacket(ORANGE* ship)
 				compressShipPacket(ship, &ship->encryptbuf[0x00], 0x06);
 			}
 #ifdef NO_SQL
-			for (ds = 0;ds<num_keydata;ds++)
+			for (ds = 0;ds < num_keydata;ds++)
 			{
 				if (key_data[ds]->guildcard == guildcard)
 				{
@@ -2957,18 +3351,21 @@ void ShipProcessPacket(ORANGE* ship)
 				}
 			}
 #else
-			mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&ship->decryptbuf[0x2FCC], 420);
+
+
+			mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&ship->decryptbuf[0x2FCC], 420); //12236
 			sprintf_s(myQuery, _countof(myQuery), "UPDATE key_data set controls = '%s' WHERE guildcard = '%u'", (char*)&E7chardata[0], guildcard);
 			if (mysql_query(myData, &myQuery[0]))
 				debug(" 无法保存公会卡用户 %u 的控制信息 ", guildcard);
 #endif
 		}
 		}
+		//printf("探测 ShipProcessPacket 0x02 指令的用途 用户恢复背包和仓库\n");
 		break;
-	case 0x05:
+	case 0x05://用于挑战数据
 		printf("未知 ShipProcessPacket 0x05 指令\n");
 		break;
-	case 0x06:
+	case 0x06://用于对战数据
 		printf("未知 ShipProcessPacket 0x06 指令\n");
 		break;
 	case 0x07://好友相关代码
@@ -2993,7 +3390,7 @@ void ShipProcessPacket(ORANGE* ship)
 
 #ifdef NO_SQL
 			ds_found = -1;
-			for (ds = 0;ds<num_guilds;ds++)
+			for (ds = 0;ds < num_guilds;ds++)
 			{
 				if ((guild_data[ds]->accountid == clientGcn) &&
 					(guild_data[ds]->friendid == friendGcn))
@@ -3005,7 +3402,7 @@ void ShipProcessPacket(ORANGE* ship)
 			gc_priority = 0;
 			ch2 = 0;
 			free_record = -1;
-			for (ds = 0;ds<num_guilds;ds++)
+			for (ds = 0;ds < num_guilds;ds++)
 			{
 				if (guild_data[ds]->accountid == clientGcn)
 				{
@@ -3146,7 +3543,7 @@ void ShipProcessPacket(ORANGE* ship)
 			deletedGcn = *(unsigned*)&ship->decryptbuf[0x0A];
 
 #ifdef NO_SQL
-			for (ds = 0;ds<num_guilds;ds++)
+			for (ds = 0;ds < num_guilds;ds++)
 			{
 				if ((guild_data[ds]->accountid == clientGcn) &&
 					(guild_data[ds]->friendid == deletedGcn))
@@ -3165,14 +3562,14 @@ void ShipProcessPacket(ORANGE* ship)
 		}
 		break;
 		case 0x02:
-			// Modify guild card comment.
+			// Modify guild card comment. 更新名片卡评论
 		{
 			unsigned clientGcn, friendGcn;
 
 			clientGcn = *(unsigned*)&ship->decryptbuf[0x06];
 			friendGcn = *(unsigned*)&ship->decryptbuf[0x0A];
 #ifdef NO_SQL
-			for (ds = 0;ds<num_guilds;ds++)
+			for (ds = 0;ds < num_guilds;ds++)
 			{
 				if ((guild_data[ds]->accountid == clientGcn) &&
 					(guild_data[ds]->friendid == friendGcn))
@@ -3209,7 +3606,7 @@ void ShipProcessPacket(ORANGE* ship)
 			gcn2 = *(unsigned*)&ship->decryptbuf[0x0E];
 
 #ifdef NO_SQL
-			for (ds = 0;ds<num_guilds;ds++)
+			for (ds = 0;ds < num_guilds;ds++)
 			{
 				if ((guild_data[ds]->accountid == clientGcn) &&
 					(guild_data[ds]->friendid == gcn1))
@@ -3240,7 +3637,7 @@ void ShipProcessPacket(ORANGE* ship)
 #endif
 
 #ifdef NO_SQL
-			for (ds = 0;ds<num_guilds;ds++)
+			for (ds = 0;ds < num_guilds;ds++)
 			{
 				if ((guild_data[ds]->accountid == clientGcn) &&
 					(guild_data[ds]->friendid == gcn2))
@@ -3314,7 +3711,7 @@ void ShipProcessPacket(ORANGE* ship)
 			// First let's be sure our friend has this person's guild card....
 
 #ifdef NO_SQL
-			for (ds = 0;ds<num_guilds;ds++)
+			for (ds = 0;ds < num_guilds;ds++)
 			{
 				if ((guild_data[ds]->accountid == clientGcn) &&
 					(guild_data[ds]->friendid == friendGcn))
@@ -3337,7 +3734,7 @@ void ShipProcessPacket(ORANGE* ship)
 			}
 			else
 			{
-				debug("Could not select existing guild card information for user %u", clientGcn);
+				debug("无法为用户 %u 选择已存在的公会卡信息", clientGcn);
 				return;
 			}
 #endif
@@ -3345,7 +3742,7 @@ void ShipProcessPacket(ORANGE* ship)
 #ifdef NO_SQL
 			if ((gc_exists == 0) && (teamid != 0))
 			{
-				for (ds = 0;ds<num_accounts;ds++)
+				for (ds = 0;ds < num_accounts;ds++)
 				{
 					if ((account_data[ds]->guildcard == friendGcn) &&
 						(account_data[ds]->teamid == teamid))
@@ -3371,7 +3768,7 @@ void ShipProcessPacket(ORANGE* ship)
 				}
 				else
 				{
-					debug("Could not select account information for user %u", friendGcn);
+					debug("无法为用户 %u 选择角色信息", friendGcn);
 					return;
 				}
 			}
@@ -3380,7 +3777,7 @@ void ShipProcessPacket(ORANGE* ship)
 			if (gc_exists)
 			{
 				// 确认!  Let's tell the ships to do the search...
-				for (ch = 0;ch<serverNumShips;ch++)
+				for (ch = 0;ch < serverNumShips;ch++)
 				{
 					shipNum = serverShipList[ch];
 					tship = ships[shipNum];
@@ -3417,7 +3814,7 @@ void ShipProcessPacket(ORANGE* ship)
 			// First let's be sure our friend has this person's guild card....
 
 #ifdef NO_SQL
-			for (ds = 0;ds<num_guilds;ds++)
+			for (ds = 0;ds < num_guilds;ds++)
 			{
 				if ((guild_data[ds]->accountid == clientGcn) &&
 					(guild_data[ds]->friendid == friendGcn))
@@ -3439,7 +3836,7 @@ void ShipProcessPacket(ORANGE* ship)
 			}
 			else
 			{
-				debug("Could not select existing guild card information for user %u", clientGcn);
+				debug("无法为用户 %u 选择现有名片信息", clientGcn);
 				return;
 			}
 #endif
@@ -3448,7 +3845,7 @@ void ShipProcessPacket(ORANGE* ship)
 #ifdef NO_SQL
 			if ((gc_exists == 0) && (teamid != 0))
 			{
-				for (ds = 0;ds<num_accounts;ds++)
+				for (ds = 0;ds < num_accounts;ds++)
 				{
 					if ((account_data[ds]->guildcard == friendGcn) &&
 						(account_data[ds]->teamid == teamid))
@@ -3474,7 +3871,7 @@ void ShipProcessPacket(ORANGE* ship)
 				}
 				else
 				{
-					debug("Could not select existing account information for user %u", friendGcn);
+					debug("无法为用户 %u 选择现有帐户信息", friendGcn);
 					return;
 				}
 			}
@@ -3483,7 +3880,7 @@ void ShipProcessPacket(ORANGE* ship)
 			if (gc_exists)
 			{
 				// 确认!  Let's tell the ships to do the search...
-				for (ch = 0;ch<serverNumShips;ch++)
+				for (ch = 0;ch < serverNumShips;ch++)
 				{
 					shipNum = serverShipList[ch];
 					tship = ships[shipNum];
@@ -3495,6 +3892,7 @@ void ShipProcessPacket(ORANGE* ship)
 		break;
 		case 0x04:
 			// Flag account 旗帜账户
+			printf("未知 ShipProcessPacket 0x0A 指令\n");
 			break;
 		case 0x05:
 			// Ban guild card. 封禁公会卡号码
@@ -3538,14 +3936,14 @@ void ShipProcessPacket(ORANGE* ship)
 
 #ifdef NO_SQL
 			free_record = -1;
-			for (ds = 0;ds<num_teams;ds++)
+			for (ds = 0;ds < num_teams;ds++)
 			{
 				if (team_data[ds]->owner == 0)
 					free_record = ds;
 				if (team_data[ds]->teamid >= highid)
 					highid = team_data[ds]->teamid;
 				match = 1;
-				for (ds2 = 0;ds2<12;ds2++)
+				for (ds2 = 0;ds2 < 12;ds2++)
 				{
 					char_check = *(unsigned short*)&ship->decryptbuf[0x06 + (ds2 * 2)];
 					if (team_data[ds]->name[ds2] != char_check)
@@ -3597,7 +3995,7 @@ void ShipProcessPacket(ORANGE* ship)
 				team_data[ds_found]->teamid = teamid = highid;
 				UpdateDataFile("team.dat", ds_found, team_data[ds_found], sizeof(L_TEAM_DATA), new_record);
 				CreateResult = 0;
-				for (ds = 0;ds<num_accounts;ds++)
+				for (ds = 0;ds < num_accounts;ds++)
 				{
 					if (account_data[ds]->guildcard == gcn)
 					{
@@ -3647,7 +4045,7 @@ void ShipProcessPacket(ORANGE* ship)
 
 			teamid = *(unsigned*)&ship->decryptbuf[0x806];
 #ifdef NO_SQL
-			for (ds = 0;ds<num_teams;ds++)
+			for (ds = 0;ds < num_teams;ds++)
 			{
 				if (team_data[ds]->teamid == teamid)
 				{
@@ -3693,7 +4091,7 @@ void ShipProcessPacket(ORANGE* ship)
 
 			teamid = *(unsigned*)&ship->decryptbuf[0x06];
 #ifdef NO_SQL
-			for (ds = 0;ds<num_teams;ds++)
+			for (ds = 0;ds < num_teams;ds++)
 			{
 				if (team_data[ds]->teamid == teamid)
 				{
@@ -3704,7 +4102,7 @@ void ShipProcessPacket(ORANGE* ship)
 				}
 			}
 
-			for (ds = 0;ds<num_accounts;ds++)
+			for (ds = 0;ds < num_accounts;ds++)
 			{
 				if (account_data[ds]->teamid == teamid)
 					account_data[ds]->teamid = -1;
@@ -3735,7 +4133,7 @@ void ShipProcessPacket(ORANGE* ship)
 			teamid = *(unsigned*)&ship->decryptbuf[0x06];
 			gcn = *(unsigned*)&ship->decryptbuf[0x0A];
 #ifdef NO_SQL
-			for (ds = 0;ds<num_accounts;ds++)
+			for (ds = 0;ds < num_accounts;ds++)
 			{
 				if ((account_data[ds]->guildcard == gcn) &&
 					(account_data[ds]->teamid == teamid))
@@ -3765,7 +4163,7 @@ void ShipProcessPacket(ORANGE* ship)
 			size -= 4;
 
 			// Just pass the packet along... 直接发送数据
-			for (ch = 0;ch<serverNumShips;ch++)
+			for (ch = 0;ch < serverNumShips;ch++)
 			{
 				shipNum = serverShipList[ch];
 				tship = ships[shipNum];
@@ -3801,7 +4199,7 @@ void ShipProcessPacket(ORANGE* ship)
 			save_offset = packet_offset;
 			packet_offset += 4;
 			num_mates = 0;
-			for (ds = 0;ds<num_accounts;ds++)
+			for (ds = 0;ds < num_accounts;ds++)
 			{
 				if (account_data[ds]->teamid == teamid)
 				{
@@ -3862,12 +4260,12 @@ void ShipProcessPacket(ORANGE* ship)
 		}
 		break;
 		case 0x06://公会成员提升
-			// Promote member
-			//
-			// 0x06 = Team ID
-			// 0x0A = Guild card
-			// 0x0B = New level
-			//
+				  // Promote member
+				  //
+				  // 0x06 = Team ID
+				  // 0x0A = Guild card
+				  // 0x0B = New level
+				  //
 		{
 			unsigned gcn, teamid;
 			unsigned char privlevel;
@@ -3876,7 +4274,7 @@ void ShipProcessPacket(ORANGE* ship)
 			gcn = *(unsigned*)&ship->decryptbuf[0x0A];
 			privlevel = (unsigned char)ship->decryptbuf[0x0E];
 #ifdef NO_SQL
-			for (ds = 0;ds<num_accounts;ds++)
+			for (ds = 0;ds < num_accounts;ds++)
 			{
 				if ((account_data[ds]->guildcard == gcn) &&
 					(account_data[ds]->teamid == teamid))
@@ -3889,7 +4287,7 @@ void ShipProcessPacket(ORANGE* ship)
 
 			if (privlevel == 0x40)
 			{
-				for (ds = 0;ds<num_accounts;ds++)
+				for (ds = 0;ds < num_accounts;ds++)
 				{
 					if (team_data[ds]->teamid == teamid)
 					{
@@ -3913,18 +4311,18 @@ void ShipProcessPacket(ORANGE* ship)
 		}
 		break;
 		case 0x07: //新增公会会员
-			// Add member
-			//
-			// 0x06 = Team ID
-			// 0x0A = Guild card
-			//
+				   // Add member
+				   //
+				   // 0x06 = Team ID
+				   // 0x0A = Guild card
+				   //
 		{
 			unsigned gcn, teamid;
 
 			teamid = *(unsigned*)&ship->decryptbuf[0x06];
 			gcn = *(unsigned*)&ship->decryptbuf[0x0A];
 #ifdef NO_SQL
-			for (ds = 0;ds<num_accounts;ds++)
+			for (ds = 0;ds < num_accounts;ds++)
 			{
 				if (account_data[ds]->guildcard == gcn)
 				{
@@ -3963,7 +4361,7 @@ void ShipProcessPacket(ORANGE* ship)
 
 			gcn = *(unsigned*)&ship->decryptbuf[0x06];
 #ifdef NO_SQL
-			for (ds = 0;ds<num_security;ds++)
+			for (ds = 0;ds < num_security;ds++)
 			{
 				if (security_data[ds]->guildcard == gcn)
 				{
@@ -3999,7 +4397,7 @@ void ShipProcessPacket(ORANGE* ship)
 					if (found_match == 0)
 						fail_to_auth = 1;
 
-					security_client_thirtytwo = *(unsigned *)&ship->decryptbuf[0x0A];
+					security_client_thirtytwo = *(unsigned*)&ship->decryptbuf[0x0A];
 
 					if (security_client_thirtytwo != security_thirtytwo_check)
 						fail_to_auth = 1;
@@ -4054,7 +4452,7 @@ void ShipProcessPacket(ORANGE* ship)
 				else
 					fail_to_auth = 1;
 
-				security_client_thirtytwo = *(unsigned *)&ship->decryptbuf[0x0A];
+				security_client_thirtytwo = *(unsigned*)&ship->decryptbuf[0x0A];
 
 				if (security_client_thirtytwo != security_thirtytwo_check)
 					fail_to_auth = 1;
@@ -4066,16 +4464,17 @@ void ShipProcessPacket(ORANGE* ship)
 #endif
 			ship->encryptbuf[0x00] = 0x0B;
 			ship->encryptbuf[0x01] = fail_to_auth;
-			*(unsigned *)&ship->encryptbuf[0x02] = gcn;
+			*(unsigned*)&ship->encryptbuf[0x02] = gcn;
 			ship->encryptbuf[0x06] = slotnum;
 			ship->encryptbuf[0x07] = isgm;
-			*(unsigned *)&ship->encryptbuf[0x08] = security_thirtytwo_check;
+			*(unsigned*)&ship->encryptbuf[0x08] = security_thirtytwo_check;
 			*(long long*)&ship->encryptbuf[0x0C] = security_sixtyfour_check;
 			compressShipPacket(ship, &ship->encryptbuf[0x00], 0x14);
 		}
 		break;
 		}
 		break;
+		//printf("探测 ShipProcessPacket 0x0B 指令的用途\n");
 	case 0x0C:
 		printf("未知 ShipProcessPacket 0x0C 指令\n");
 		break;
@@ -4086,11 +4485,11 @@ void ShipProcessPacket(ORANGE* ship)
 	{
 		unsigned updateID;
 
-		updateID = *(unsigned *)&ship->decryptbuf[0x06];
+		updateID = *(unsigned*)&ship->decryptbuf[0x06];
 		updateID--;
 
 		if (updateID < serverMaxShips)
-			ships[updateID]->playerCount = *(unsigned *)&ship->decryptbuf[0x0A];
+			ships[updateID]->playerCount = *(unsigned*)&ship->decryptbuf[0x0A];
 
 		construct0xA0();
 	}
@@ -4127,18 +4526,19 @@ void ShipProcessPacket(ORANGE* ship)
 	case 0x11: //与舰船ping代码
 		ship->last_ping = (unsigned)servertime;
 		ship->sent_ping = 0;
+		//printf("与舰船ping的代码\n");
 		break;
 	case 0x12: //全球公告
-		// Global announcement
+			   // Global announcement
 	{
 		ORANGE* tship;
 		unsigned size, ch;
 
-		size = *(unsigned *)&ship->decryptbuf[0x00];
+		size = *(unsigned*)&ship->decryptbuf[0x00];
 		size -= 4;
 
 		// Just pass the packet along...
-		for (ch = 0;ch<serverNumShips;ch++)
+		for (ch = 0;ch < serverNumShips;ch++)
 		{
 			shipNum = serverShipList[ch];
 			tship = ships[shipNum];
@@ -4147,10 +4547,15 @@ void ShipProcessPacket(ORANGE* ship)
 		}
 	}
 	break;
+	case 0x13: //未知 尝试用在恢复角色的挑战模式数据上
+	{
+		printf("探测0x13用途在哪");
+	}
+	break;
 	default:
 		// Unknown packet received from ship?
 		// 从舰船服务器接收到的未知数据包？
-		printf("未知 ShipProcessPacket 指令 会造成与舰船断开连接\n");
+		printf("从舰船服务器接收到的未知数据包 会造成与舰船断开连接\n");
 		ship->todc = 1;
 		break;
 	}
@@ -4178,17 +4583,17 @@ void CharacterProcessPacket(BANANA* client)
 	switch (client->decryptbuf[0x02])
 	{
 	case 0x05:
-		printf("用户进入跃迁.\n");
+		printf("用户进入跃迁轨道.\n");
 		client->todc = 1;
-		printf("探测 CharacterProcessPacket 0x05 指令 的用途\n");
+		//printf("探测 CharacterProcessPacket 0x05 指令 的用途\n");
 		break;
 	case 0x10:
 		if ((client->guildcard) && (client->slotnum != -1))
 		{
 			ORANGE* tship;
 
-			selected = *(unsigned *)&client->decryptbuf[0x0C];
-			for (ch = 0;ch<serverNumShips;ch++)
+			selected = *(unsigned*)&client->decryptbuf[0x0C];
+			for (ch = 0;ch < serverNumShips;ch++)
 			{
 				shipNum = serverShipList[ch];
 				tship = ships[shipNum];
@@ -4203,11 +4608,11 @@ void CharacterProcessPacket(BANANA* client)
 				}
 			}
 		}
-		printf("探测 CharacterProcessPacket 0x10 指令 的用途\n");
+		//printf("探测 CharacterProcessPacket 0x10 指令 的用途\n");
 		break;
 	case 0x1D:
 		// Do nothing.啥也不做
-		printf("探测 CharacterProcessPacket 0x1D 指令 的用途\n");
+		//printf("探测 CharacterProcessPacket 0x1D 指令 的用途\n");
 		break;
 	case 0x93: //客户端相应数据包 用于用户认证账户信息
 		if (!client->sendCheck[RECEIVE_PACKET_93]) //如果未接到93指令
@@ -4219,17 +4624,17 @@ void CharacterProcessPacket(BANANA* client)
 			memcpy(&password[0], &client->decryptbuf[0x4C], 17);
 			memset(&hwinfo[0], 0, 18);
 #ifdef NO_SQL
-			*(long long*)&client->hwinfo[0] = *(long long*)&client->decryptbuf[0x84];
+			* (long long*)&client->hwinfo[0] = *(long long*)&client->decryptbuf[0x84];
 			truehwinfo = *(long long*)&client->decryptbuf[0x84];
 			fail_to_auth = 2; // default fail with wrong username
-			for (ds = 0;ds<num_accounts;ds++)
+			for (ds = 0;ds < num_accounts;ds++)
 			{
 				if (!strcmp(&account_data[ds]->username[0], &username[0]))
 				{
 					fail_to_auth = 0;
 					sprintf(&password[strlen(password)], "_%u_salt", account_data[ds]->regtime);
 					MDString(&password[0], &MDBuffer[0]);
-					for (ch = 0;ch<16;ch++)
+					for (ch = 0;ch < 16;ch++)
 						sprintf(&md5password[ch * 2], "%02x", (unsigned char)MDBuffer[ch]);
 					md5password[32] = 0;
 					if (!strcmp(&md5password[0], &account_data[ds]->password[0]))
@@ -4254,14 +4659,14 @@ void CharacterProcessPacket(BANANA* client)
 
 			if (!fail_to_auth)
 			{
-				for (ds = 0;ds<num_security;ds++)
+				for (ds = 0;ds < num_security;ds++)
 				{
 					if (security_data[ds]->guildcard == gcn)
 					{
 						int found_match;
 
 						client->dress_flag = 0;
-						for (ch = 0;ch<MAX_DRESS_FLAGS;ch++)
+						for (ch = 0;ch < MAX_DRESS_FLAGS;ch++)
 						{
 							if (dress_flags[ch].guildcard == gcn)
 								client->dress_flag = 1;
@@ -4296,7 +4701,7 @@ void CharacterProcessPacket(BANANA* client)
 						if (found_match == 0)
 							fail_to_auth = 6;
 
-						security_client_thirtytwo = *(unsigned *)&client->decryptbuf[0x18];
+						security_client_thirtytwo = *(unsigned*)&client->decryptbuf[0x18];
 
 						if (security_client_thirtytwo == 0)
 							client->sendingchars = 1;
@@ -4330,7 +4735,7 @@ void CharacterProcessPacket(BANANA* client)
 					max_fields = mysql_num_fields(myResult);
 					sprintf_s(&password[strlen(password)], _countof(password) - strlen(password), "_%s_salt", myRow[3]);
 					MDString(&password[0], &MDBuffer[0]);
-					for (ch = 0;ch<16;ch++)
+					for (ch = 0;ch < 16;ch++)
 						sprintf_s(&md5password[ch * 2], _countof(md5password) - ch * 2, "%02x", (unsigned char)MDBuffer[ch]);
 					md5password[32] = 0;
 					if (!strcmp(&md5password[0], myRow[1]))
@@ -4389,7 +4794,7 @@ void CharacterProcessPacket(BANANA* client)
 						myRow = mysql_fetch_row(myResult);
 
 						client->dress_flag = 0;
-						for (ch = 0;ch<MAX_DRESS_FLAGS;ch++)
+						for (ch = 0;ch < MAX_DRESS_FLAGS;ch++)
 						{
 							if (dress_flags[ch].guildcard == gcn)
 								client->dress_flag = 1;
@@ -4428,7 +4833,7 @@ void CharacterProcessPacket(BANANA* client)
 					else
 						fail_to_auth = 6;
 
-					security_client_thirtytwo = *(unsigned *)&client->decryptbuf[0x18];
+					security_client_thirtytwo = *(unsigned*)&client->decryptbuf[0x18];
 
 					if (security_client_thirtytwo == 0)
 						client->sendingchars = 1;
@@ -4452,18 +4857,18 @@ void CharacterProcessPacket(BANANA* client)
 			case 0x00:
 				// OK
 				memcpy(&client->encryptbuf[0], &PacketE6[0], sizeof(PacketE6));
-				*(unsigned *)&client->encryptbuf[0x10] = gcn;
+				*(unsigned*)&client->encryptbuf[0x10] = gcn;
 				client->guildcard = gcn;
 				_itoa_s(gcn, client->guildcard_string, _countof(client->guildcard_string), 10); /* auth'd, bitch */
 																								// Store some security shit in the E6 packet.
 				*(long long*)&client->encryptbuf[0x38] = security_sixtyfour_check;
 				if (security_thirtytwo_check == 0)
 				{
-					for (ch = 0;ch<4;ch++)
+					for (ch = 0;ch < 4;ch++)
 						MDBuffer[ch] = (unsigned char)(rand() % 256);
-					security_thirtytwo_check = *(unsigned *)&MDBuffer[0];
+					security_thirtytwo_check = *(unsigned*)&MDBuffer[0];
 #ifdef NO_SQL
-					for (ds = 0;ds<num_security;ds++)
+					for (ds = 0;ds < num_security;ds++)
 					{
 						if (security_data[ds]->guildcard == gcn)
 						{
@@ -4483,7 +4888,7 @@ void CharacterProcessPacket(BANANA* client)
 					}
 #endif
 				}
-				*(unsigned *)&client->encryptbuf[0x14] = security_thirtytwo_check;
+				*(unsigned*)&client->encryptbuf[0x14] = security_thirtytwo_check;
 				cipher_ptr = &client->server_cipher;
 				encryptcopy(client, &client->encryptbuf[0], sizeof(PacketE6));
 				if (client->slotnum != -1)
@@ -4498,7 +4903,7 @@ void CharacterProcessPacket(BANANA* client)
 						// User has completed the login process, after updating the SQL info with their
 						// access information, give 'em the ship select screen.
 #ifdef NO_SQL
-						for (ds = 0;ds<num_accounts;ds++)
+						for (ds = 0;ds < num_accounts;ds++)
 						{
 							if (account_data[ds]->guildcard == gcn)
 							{
@@ -4553,7 +4958,7 @@ void CharacterProcessPacket(BANANA* client)
 			}
 			client->sendCheck[RECEIVE_PACKET_93] = 0x01;
 		}
-		printf("探测 CharacterProcessPacket 0x93 指令 的用途\n");
+		//printf("探测 CharacterProcessPacket 0x93 指令 的用途\n");
 		break;
 	case 0xDC:
 		switch (client->decryptbuf[0x03])
@@ -4566,23 +4971,23 @@ void CharacterProcessPacket(BANANA* client)
 		default:
 			break;
 		}
-		printf("探测 CharacterProcessPacket 0xDC 指令 的用途\n");
+		//printf("探测 CharacterProcessPacket 0xDC 指令 的用途\n");
 		break;
-	case 0xE0:
-		// The gamepad, keyboard config, and other options....游戏板和其他选项。。。。
-		printf("探测 CharacterProcessPacket 0xE0 指令 的用途\n");
+	case 0xE0://跳过补丁界面 进入选择角色前触发
+			  // The gamepad, keyboard config, and other options....游戏板和其他选项。。。。
+			  //printf("探测 CharacterProcessPacket 0xE0 指令 的用途\n");
 		SendE2(client);
 		break;
 	case 0xE3:
 		// Client selecting or requesting character.客户端选择或请求角色数据
 		SendE4_E5(client->decryptbuf[0x08], client->decryptbuf[0x0C], client);
-		printf("探测 CharacterProcessPacket 0xE3 指令 的用途\n");
+		//printf("探测 CharacterProcessPacket 0xE3 指令 的用途\n");
 		break;
 	case 0xE5:
 		// Create a character in slot.在角色槽位中创建角色
 		// Check invalid data and store character in MySQL store.检查在数据库中无效的角色数据并进行恢复
 		AckCharacter_Creation(client->decryptbuf[0x08], client);
-		printf("探测 CharacterProcessPacket 0xE5 指令 的用途\n");
+		//printf("探测 CharacterProcessPacket 0xE5 指令 的用途\n");
 		break;
 	case 0xE8:
 		switch (client->decryptbuf[0x03])
@@ -4600,7 +5005,7 @@ void CharacterProcessPacket(BANANA* client)
 		default:
 			break;
 		}
-		printf("探测 CharacterProcessPacket 0xE8 指令 的用途\n");
+		//printf("探测 CharacterProcessPacket 0xE8 指令 的用途\n");
 		break;
 	case 0xEB:
 		switch (client->decryptbuf[0x03])
@@ -4614,14 +5019,14 @@ void CharacterProcessPacket(BANANA* client)
 			SendEB(0x01, 0x00, client);
 			break;
 		}
-		printf("探测 CharacterProcessPacket 0xEB 指令 的用途\n");
+		//printf("探测 CharacterProcessPacket 0xEB 指令 的用途\n");
 		break;
 	case 0xEC:
 		if (client->decryptbuf[0x08] == 0x02)
 		{
 			// Set the dressing room flag (Don't overwrite the character...)
 			// 设置更衣室的标记 不重写角色
-			for (ch = 0;ch<MAX_DRESS_FLAGS;ch++)
+			for (ch = 0;ch < MAX_DRESS_FLAGS;ch++)
 				if (dress_flags[ch].guildcard == 0)
 				{
 					dress_flags[ch].guildcard = client->guildcard;
@@ -4635,7 +5040,7 @@ void CharacterProcessPacket(BANANA* client)
 				}
 			client->dress_flag = 1;
 		}
-		printf("探测 CharacterProcessPacket 0xEC 指令 的用途\n");
+		//printf("探测 CharacterProcessPacket 0xEC 指令 的用途\n");
 		break;
 	default:
 		break;
@@ -4668,7 +5073,7 @@ void LoginProcessPacket(BANANA* client)
 	switch (client->decryptbuf[0x02])
 	{
 	case 0x05:
-		printf("客户端已断开跃迁程序.\n");
+		printf("用户已离开跃迁.\n");
 		client->todc = 1;
 		break;
 	case 0x93:
@@ -4680,17 +5085,17 @@ void LoginProcessPacket(BANANA* client)
 			memcpy(&password[0], &client->decryptbuf[0x4C], 17);
 			memset(&hwinfo[0], 0, 18);
 #ifdef NO_SQL
-			*(long long*)&client->hwinfo[0] = *(long long*)&client->decryptbuf[0x84];
+			* (long long*)&client->hwinfo[0] = *(long long*)&client->decryptbuf[0x84];
 			truehwinfo = *(long long*)&client->decryptbuf[0x84];
 			fail_to_auth = 2; // default fail with wrong username
-			for (ds = 0;ds<num_accounts;ds++)
+			for (ds = 0;ds < num_accounts;ds++)
 			{
 				if (!strcmp(&account_data[ds]->username[0], &username[0]))
 				{
 					fail_to_auth = 0;
 					sprintf(&password[strlen(password)], "_%u_salt", account_data[ds]->regtime);
 					MDString(&password[0], &MDBuffer[0]);
-					for (ch = 0;ch<16;ch++)
+					for (ch = 0;ch < 16;ch++)
 						sprintf(&md5password[ch * 2], "%02x", (unsigned char)MDBuffer[ch]);
 					md5password[32] = 0;
 					if (!strcmp(&md5password[0], &account_data[ds]->password[0]))
@@ -4733,7 +5138,7 @@ void LoginProcessPacket(BANANA* client)
 					max_fields = mysql_num_fields(myResult);
 					sprintf_s(&password[strlen(password)], _countof(password) - strlen(password), "_%s_salt", myRow[3]);
 					MDString(&password[0], &MDBuffer[0]);
-					for (ch = 0;ch<16;ch++)
+					for (ch = 0;ch < 16;ch++)
 						sprintf_s(&md5password[ch * 2], _countof(md5password) - ch * 2, "%02x", (unsigned char)MDBuffer[ch]);
 					md5password[32] = 0;
 					if (!strcmp(&md5password[0], myRow[1]))
@@ -4781,7 +5186,7 @@ void LoginProcessPacket(BANANA* client)
 
 				// If guild card is connected to the login server already, disconnect it.
 
-				for (ch = 0;ch<serverNumConnections;ch++)
+				for (ch = 0;ch < serverNumConnections;ch++)
 				{
 					connectNum = serverConnectionList[ch];
 					if (connections[connectNum]->guildcard == gcn)
@@ -4794,7 +5199,7 @@ void LoginProcessPacket(BANANA* client)
 
 				// If guild card is connected to ships, disconnect it.
 
-				for (ch = 0;ch<serverNumShips;ch++)
+				for (ch = 0;ch < serverNumShips;ch++)
 				{
 					shipNum = serverShipList[ch];
 					tship = ships[shipNum];
@@ -4804,10 +5209,10 @@ void LoginProcessPacket(BANANA* client)
 
 
 				memcpy(&client->encryptbuf[0], &PacketE6[0], sizeof(PacketE6));
-				*(unsigned *)&client->encryptbuf[0x10] = gcn;
+				*(unsigned*)&client->encryptbuf[0x10] = gcn;
 
 				// Store some security shit
-				for (ch = 0;ch<8;ch++)
+				for (ch = 0;ch < 8;ch++)
 					client->encryptbuf[0x38 + ch] = (unsigned char)rand() % 255;
 
 				security_sixtyfour_check = *(long long*)&client->encryptbuf[0x38];
@@ -4817,7 +5222,7 @@ void LoginProcessPacket(BANANA* client)
 #ifdef NO_SQL
 				free_record = -1;
 				new_record = 1;
-				for (ds = 0;ds<num_security;ds++)
+				for (ds = 0;ds < num_security;ds++)
 				{
 					if (security_data[ds]->guildcard == gcn)
 						security_data[ds]->guildcard = 0;
@@ -4856,7 +5261,7 @@ void LoginProcessPacket(BANANA* client)
 				encryptcopy(client, &client->encryptbuf[0], sizeof(PacketE6));
 
 				Send19(serverIP[0], serverIP[1], serverIP[2], serverIP[3], serverPort + 1, client);
-				for (ch = 0;ch<MAX_DRESS_FLAGS;ch++)
+				for (ch = 0;ch < MAX_DRESS_FLAGS;ch++)
 				{
 					if ((dress_flags[ch].guildcard == gcn) || ((unsigned)servertime - dress_flags[ch].flagtime > DRESS_FLAG_EXPIRY))
 						dress_flags[ch].guildcard = 0;
@@ -4955,7 +5360,7 @@ void LoadDropData()
 	printf("正在载入掉落数据...\n");
 
 	// Each episode 每种章节
-	for (ch = 1;ch<5;ch++)
+	for (ch = 1;ch < 5;ch++)
 	{
 		if (ch != 3)
 		{
@@ -4972,10 +5377,10 @@ void LoadDropData()
 				break;
 			}
 			// Each difficulty 每种难度
-			for (d = 0;d<4;d++)
+			for (d = 0;d < 4;d++)
 			{
 				// Each section ID 每种颜色ID
-				for (ch2 = 0;ch2<10;ch2++)
+				for (ch2 = 0;ch2 < 10;ch2++)
 				{
 					id_file[0] = 0;
 					switch (ch)
@@ -5000,7 +5405,7 @@ void LoadDropData()
 					fp = fopen(&id_file[0], "r");
 					if (!fp)
 					{
-						printf("掉落表未找到 \"%s\"", (char *)id_file[0]);
+						printf("掉落表未找到 \"%s\"", (char*)id_file[0]);
 						printf("按下 [回车键] 退出...");
 						gets_s(&dp[0], 0);
 						exit(1);
@@ -5019,7 +5424,7 @@ void LoadDropData()
 							{
 								if (strlen(&dp[0]) < 6)
 								{
-									printf("掉落表已损坏 \"%s\"", (char *)id_file[0]);
+									printf("掉落表已损坏 \"%s\"", (char*)id_file[0]);
 									printf("按下 [回车键] 退出...");
 									gets_s(&dp[0], 0);
 									exit(1);
@@ -5041,7 +5446,7 @@ void LoadDropData()
 					fp = fopen(&id_file[0], "r");
 					if (!fp)
 					{
-						printf("掉落表未找到 \"%s\"", (char *)id_file[0]);
+						printf("掉落表未找到 \"%s\"", (char*)id_file[0]);
 						printf("按下 [回车键] 退出...");
 						gets_s(&dp[0], 0);
 						exit(1);
@@ -5064,7 +5469,7 @@ void LoadDropData()
 							case 0x02:
 								if (strlen(&dp[0]) < 6)
 								{
-									printf("掉落表已损坏 \"%s\"", (char *)id_file[0]);
+									printf("掉落表已损坏 \"%s\"", (char*)id_file[0]);
 									printf("按下 [回车键] 退出...");
 									gets_s(&dp[0], 0);
 									exit(1);
@@ -5131,7 +5536,7 @@ void DumpDataFile(const char* filename, unsigned* count, void** data, unsigned r
 	fopen_s(&fp, filename, "wb");
 	if (fp)
 	{
-		for (ch = 0;ch<*count;ch++)
+		for (ch = 0;ch < *count;ch++)
 			fwrite(data[ch], 1, record_size, fp);
 		fclose(fp);
 	}
@@ -5152,7 +5557,7 @@ void LoadDataFile(const char* filename, unsigned* count, void** data, unsigned r
 		fseek(fp, 0, SEEK_END);
 		*count = ftell(fp) / record_size;
 		fseek(fp, 0, SEEK_SET);
-		for (ch = 0;ch<*count;ch++)
+		for (ch = 0;ch < *count;ch++)
 		{
 			data[ch] = malloc(record_size);
 			if (!data[ch])
@@ -5209,7 +5614,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 **
 ********************************************************/
 
-int main(int argc, char * argv[])
+int main(int argc, char* argv[])
 {
 	unsigned ch, ch2;
 	struct in_addr login_in;
@@ -5270,11 +5675,11 @@ int main(int argc, char * argv[])
 	load_config_file();
 	printf("  确认!\n");
 
-	/* Set this up for later. */
+	/* Set this up for later. 以后再做这个*/
 
 	memset(&empty_bank, 0, sizeof(BANK));
 
-	for (ch = 0;ch<200;ch++)
+	for (ch = 0;ch < 200;ch++)
 		empty_bank.bankInventory[ch].itemid = 0xFFFFFFFF;
 
 #ifdef NO_SQL
@@ -5354,7 +5759,7 @@ int main(int argc, char * argv[])
 	printf("最大连接: %u\n", serverMaxConnections);
 	printf("最大舰船: %u\n\n", serverMaxShips);
 	printf("内存分配 %u 字节用于连接...", sizeof(BANANA) * serverMaxConnections);
-	for (ch = 0;ch<serverMaxConnections;ch++)
+	for (ch = 0;ch < serverMaxConnections;ch++)
 	{
 		connections[ch] = malloc(sizeof(BANANA));
 		if (!connections[ch])
@@ -5369,7 +5774,7 @@ int main(int argc, char * argv[])
 	printf(" 确认!\n");
 	printf("内存分配 %u 字节用于舰船...", sizeof(ORANGE) * serverMaxShips);
 	memset(&ships, 0, 4 * serverMaxShips);
-	for (ch = 0;ch<serverMaxShips;ch++)
+	for (ch = 0;ch < serverMaxShips;ch++)
 	{
 		ships[ch] = malloc(sizeof(ORANGE));
 		if (!ships[ch])
@@ -5424,7 +5829,7 @@ int main(int argc, char * argv[])
 #ifdef NO_SQL
 
 	max_ship_keys = 0;
-	for (ds = 0;ds<num_shipkeys;ds++)
+	for (ds = 0;ds < num_shipkeys;ds++)
 	{
 		if (ship_data[ds]->idx >= max_ship_keys)
 			max_ship_keys = ship_data[ds]->idx;
@@ -5485,9 +5890,9 @@ int main(int argc, char * argv[])
 	login_in.s_addr = INADDR_ANY;
 #else
 	if (override_on)
-		*(unsigned *)&login_in.s_addr = *(unsigned *)&overrideIP[0];
+		*(unsigned*)&login_in.s_addr = *(unsigned*)&overrideIP[0];
 	else
-		*(unsigned *)&login_in.s_addr = *(unsigned *)&serverIP[0];
+		*(unsigned*)&login_in.s_addr = *(unsigned*)&serverIP[0];
 #endif
 	login_sockfd = tcp_sock_open(login_in, serverPort);
 
@@ -5501,9 +5906,9 @@ int main(int argc, char * argv[])
 	character_in.s_addr = INADDR_ANY;
 #else
 	if (override_on)
-		*(unsigned *)&character_in.s_addr = *(unsigned*)&overrideIP[0];
+		*(unsigned*)&character_in.s_addr = *(unsigned*)&overrideIP[0];
 	else
-		*(unsigned *)&character_in.s_addr = *(unsigned *)&serverIP[0];
+		*(unsigned*)&character_in.s_addr = *(unsigned*)&serverIP[0];
 #endif
 	character_sockfd = tcp_sock_open(character_in, serverPort + 1);
 
@@ -5517,15 +5922,15 @@ int main(int argc, char * argv[])
 	ship_in.s_addr = INADDR_ANY;
 #else
 	if (override_on)
-		*(unsigned *)&ship_in.s_addr = *(unsigned *)&overrideIP[0];
+		*(unsigned*)&ship_in.s_addr = *(unsigned*)&overrideIP[0];
 	else
-		*(unsigned *)&ship_in.s_addr = *(unsigned *)&serverIP[0];
+		*(unsigned*)&ship_in.s_addr = *(unsigned*)&serverIP[0];
 #endif
 	ship_sockfd = tcp_sock_open(ship_in, 3455);
 
 	tcp_listen(ship_sockfd);
 
-	if ((login_sockfd<0) || (character_sockfd<0) || (ship_sockfd<0))
+	if ((login_sockfd < 0) || (character_sockfd < 0) || (ship_sockfd < 0))
 	{
 		printf("无法打开连接端口.\n");
 		printf("按下 [回车键] 退出");
@@ -5617,11 +6022,11 @@ int main(int argc, char * argv[])
 		if ((unsigned)servertime - lastdump > 600)
 		{
 			printf("Refreshing account and ship key databases...\n");
-			for (ch = 0;ch<num_accounts;ch++)
+			for (ch = 0;ch < num_accounts;ch++)
 				free(account_data[ch]);
 			num_accounts = 0;
 			LoadDataFile("account.dat", &num_accounts, &account_data[0], sizeof(L_ACCOUNT_DATA));
-			for (ch = 0;ch<num_shipkeys;ch++)
+			for (ch = 0;ch < num_shipkeys;ch++)
 				free(ship_data[ch]);
 			num_shipkeys = 0;
 			LoadDataFile("shipkey.dat", &num_shipkeys, &ship_data[0], sizeof(L_SHIP_DATA));
@@ -5636,7 +6041,7 @@ int main(int argc, char * argv[])
 		FD_ZERO(&WriteFDs);
 		FD_ZERO(&ExceptFDs);
 
-		for (ch = 0;ch<serverNumConnections;ch++)
+		for (ch = 0;ch < serverNumConnections;ch++)
 		{
 			connectNum = serverConnectionList[ch];
 			workConnect = connections[connectNum];
@@ -5695,7 +6100,7 @@ int main(int argc, char * argv[])
 			}
 		}
 
-		for (ch = 0;ch<serverNumShips;ch++)
+		for (ch = 0;ch < serverNumShips;ch++)
 		{
 			shipNum = serverShipList[ch];
 			workShip = ships[shipNum];
@@ -5721,7 +6126,7 @@ int main(int argc, char * argv[])
 				{
 					if (workShip->packetdata)
 					{
-						ship_this_packet = *(unsigned *)&workShip->packet[workShip->packetread];
+						ship_this_packet = *(unsigned*)&workShip->packet[workShip->packetread];
 						memcpy(&workShip->decryptbuf[0], &workShip->packet[workShip->packetread], ship_this_packet);
 
 						ShipProcessPacket(workShip);
@@ -5769,7 +6174,7 @@ int main(int argc, char * argv[])
 				{
 					listen_length = sizeof(listen_in);
 					workConnect = connections[ch];
-					if ((workConnect->plySockfd = tcp_accept(login_sockfd, (struct sockaddr*) &listen_in, &listen_length)) >= 0)
+					if ((workConnect->plySockfd = tcp_accept(login_sockfd, (struct sockaddr*)&listen_in, &listen_length)) >= 0)
 					{
 						workConnect->connection_index = ch;
 						serverConnectionList[serverNumConnections++] = ch;
@@ -5790,7 +6195,7 @@ int main(int argc, char * argv[])
 				{
 					listen_length = sizeof(listen_in);
 					workConnect = connections[ch];
-					if ((workConnect->plySockfd = tcp_accept(character_sockfd, (struct sockaddr*) &listen_in, &listen_length)) >= 0)
+					if ((workConnect->plySockfd = tcp_accept(character_sockfd, (struct sockaddr*)&listen_in, &listen_length)) >= 0)
 					{
 						workConnect->connection_index = ch;
 						serverConnectionList[serverNumConnections++] = ch;
@@ -5811,12 +6216,12 @@ int main(int argc, char * argv[])
 				{
 					listen_length = sizeof(listen_in);
 					workShip = ships[ch];
-					if ((workShip->shipSockfd = tcp_accept(ship_sockfd, (struct sockaddr*) &listen_in, &listen_length)) >= 0)
+					if ((workShip->shipSockfd = tcp_accept(ship_sockfd, (struct sockaddr*)&listen_in, &listen_length)) >= 0)
 					{
 						workShip->connection_index = ch;
 						serverShipList[serverNumShips++] = ch;
 						printf("已接受来自 %s:%u 的舰船连接\n", inet_ntoa(listen_in.sin_addr), listen_in.sin_port);
-						*(unsigned *)&workShip->listenedAddr[0] = *(unsigned*)&listen_in.sin_addr;
+						*(unsigned*)&workShip->listenedAddr[0] = *(unsigned*)&listen_in.sin_addr;
 						workShip->connected = workShip->last_ping = (unsigned)servertime;
 						ShipSend00(workShip);
 					}
@@ -5825,7 +6230,7 @@ int main(int argc, char * argv[])
 
 			// Process client connections
 
-			for (ch = 0;ch<serverNumConnections;ch++)
+			for (ch = 0;ch < serverNumConnections;ch++)
 			{
 				connectNum = serverConnectionList[ch];
 				workConnect = connections[connectNum];
@@ -5848,7 +6253,7 @@ int main(int argc, char * argv[])
 						{
 							workConnect->fromBytesSec += (unsigned)pkt_len;
 							// Work with it.
-							for (pkt_c = 0;pkt_c<pkt_len;pkt_c++)
+							for (pkt_c = 0;pkt_c < pkt_len;pkt_c++)
 							{
 								workConnect->rcvbuf[workConnect->rcvread++] = tmprcv[pkt_c];
 
@@ -5897,9 +6302,9 @@ int main(int argc, char * argv[])
 
 										workConnect->packetsSec++;
 
-										if ((workConnect->packetsSec   > 40) ||
+										if ((workConnect->packetsSec > 40) ||
 											(workConnect->fromBytesSec > 15000) ||
-											(workConnect->toBytesSec   > 500000))
+											(workConnect->toBytesSec > 500000))
 										{
 											printf("%u 由于可能的DDOS而断开连接. (p/s: %u, tb/s: %u, fb/s: %u)\n", workConnect->guildcard, workConnect->packetsSec, workConnect->toBytesSec, workConnect->fromBytesSec);
 											initialize_connection(workConnect);
@@ -5953,7 +6358,7 @@ int main(int argc, char * argv[])
 
 			// Process ship connections
 
-			for (ch = 0;ch<serverNumShips;ch++)
+			for (ch = 0;ch < serverNumShips;ch++)
 			{
 				shipNum = serverShipList[ch];
 				workShip = ships[shipNum];
@@ -5976,7 +6381,7 @@ int main(int argc, char * argv[])
 						else
 						{
 							// Work with it.
-							for (pkt_c = 0;pkt_c<pkt_len;pkt_c++)
+							for (pkt_c = 0;pkt_c < pkt_len;pkt_c++)
 							{
 								workShip->rcvbuf[workShip->rcvread++] = tmprcv[pkt_c];
 
@@ -5996,7 +6401,7 @@ int main(int argc, char * argv[])
 								{
 									decompressShipPacket(workShip, &workShip->decryptbuf[0], &workShip->rcvbuf[0]);
 
-									workShip->expect = *(unsigned *)&workShip->decryptbuf[0];
+									workShip->expect = *(unsigned*)&workShip->decryptbuf[0];
 
 									if (workShip->packetdata + workShip->expect < PACKET_BUFFER_SIZE)
 									{
@@ -6100,7 +6505,7 @@ void tcp_listen(int sockfd)
 	}
 }
 
-int tcp_accept(int sockfd, struct sockaddr *client_addr, int *addr_len)
+int tcp_accept(int sockfd, struct sockaddr* client_addr, int* addr_len)
 {
 	int fd;
 
@@ -6116,7 +6521,7 @@ int tcp_sock_connect(char* dest_addr, int port)
 	struct sockaddr_in sa;
 
 	/* Clear it out */
-	memset((void *)&sa, 0, sizeof(sa));
+	memset((void*)&sa, 0, sizeof(sa));
 
 	fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
@@ -6131,7 +6536,7 @@ int tcp_sock_connect(char* dest_addr, int port)
 		sa.sin_addr.s_addr = inet_addr(dest_addr);
 		sa.sin_port = htons((unsigned short)port);
 
-		if (connect(fd, (struct sockaddr*) &sa, sizeof(sa)) < 0)
+		if (connect(fd, (struct sockaddr*)&sa, sizeof(sa)) < 0)
 			debug_perror("无法建立TCP连接");
 		else
 			debug("tcp_sock_connect %s:%u", inet_ntoa(sa.sin_addr), sa.sin_port);
@@ -6147,7 +6552,7 @@ int tcp_sock_open(struct in_addr ip, int port)
 	struct sockaddr_in sa;
 
 	/* Clear it out */
-	memset((void *)&sa, 0, sizeof(sa));
+	memset((void*)&sa, 0, sizeof(sa));
 
 	fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 
@@ -6160,15 +6565,15 @@ int tcp_sock_open(struct in_addr ip, int port)
 	}
 
 	sa.sin_family = AF_INET;
-	memcpy((void *)&sa.sin_addr, (void *)&ip, sizeof(struct in_addr));
+	memcpy((void*)&sa.sin_addr, (void*)&ip, sizeof(struct in_addr));
 	sa.sin_port = htons((unsigned short)port);
 
 	/* Reuse port */
 
-	rcSockopt = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (char *)&turn_on_option_flag, sizeof(turn_on_option_flag));
+	rcSockopt = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (char*)&turn_on_option_flag, sizeof(turn_on_option_flag));
 
 	/* bind() the socket to the interface */
-	if (bind(fd, (struct sockaddr *)&sa, sizeof(struct sockaddr)) < 0) {
+	if (bind(fd, (struct sockaddr*)&sa, sizeof(struct sockaddr)) < 0) {
 		debug_perror("无法绑定端口");
 		printf("按下 [回车键] 退出");
 		getchar();
@@ -6182,11 +6587,11 @@ int tcp_sock_open(struct in_addr ip, int port)
 * same as debug_perror but writes to debug output.
 *
 *****************************************************************************/
-void debug_perror(char * msg) {
+void debug_perror(char* msg) {
 	debug("%s : %s\n", msg, strerror_s(error_buffer, _countof(error_buffer), errno));
 }
 /*****************************************************************************/
-void debug(char *fmt, ...)
+void debug(char* fmt, ...)
 {
 #define MAX_MESG_LEN 1024
 
@@ -6203,7 +6608,7 @@ void debug(char *fmt, ...)
 
 /* Blue Burst encryption routines */
 
-static void pso_crypt_init_key_bb(unsigned char *data)
+static void pso_crypt_init_key_bb(unsigned char* data)
 {
 	unsigned x;
 	for (x = 0; x < 48; x += 3)
@@ -6215,7 +6620,7 @@ static void pso_crypt_init_key_bb(unsigned char *data)
 }
 
 
-void pso_crypt_decrypt_bb(PSO_CRYPT *pcry, unsigned char *data, unsigned
+void pso_crypt_decrypt_bb(PSO_CRYPT* pcry, unsigned char* data, unsigned
 	length)
 {
 	unsigned eax, ecx, edx, ebx, ebp, esi, edi;
@@ -6225,12 +6630,12 @@ void pso_crypt_decrypt_bb(PSO_CRYPT *pcry, unsigned char *data, unsigned
 	eax = 0;
 	while (edx < length)
 	{
-		ebx = *(unsigned long *)&data[edx];
+		ebx = *(unsigned long*)&data[edx];
 		ebx = ebx ^ pcry->tbl[5];
 		ebp = ((pcry->tbl[(ebx >> 0x18) + 0x12] + pcry->tbl[((ebx >> 0x10) & 0xff) + 0x112])
 			^ pcry->tbl[((ebx >> 0x8) & 0xff) + 0x212]) + pcry->tbl[(ebx & 0xff) + 0x312];
 		ebp = ebp ^ pcry->tbl[4];
-		ebp ^= *(unsigned long *)&data[edx + 4];
+		ebp ^= *(unsigned long*)&data[edx + 4];
 		edi = ((pcry->tbl[(ebp >> 0x18) + 0x12] + pcry->tbl[((ebp >> 0x10) & 0xff) + 0x112])
 			^ pcry->tbl[((ebp >> 0x8) & 0xff) + 0x212]) + pcry->tbl[(ebp & 0xff) + 0x312];
 		edi = edi ^ pcry->tbl[3];
@@ -6243,14 +6648,14 @@ void pso_crypt_decrypt_bb(PSO_CRYPT *pcry, unsigned char *data, unsigned
 		edi = edi ^ pcry->tbl[1];
 		ebp = ebp ^ pcry->tbl[0];
 		ebx = ebx ^ edi;
-		*(unsigned long *)&data[edx] = ebp;
-		*(unsigned long *)&data[edx + 4] = ebx;
+		*(unsigned long*)&data[edx] = ebp;
+		*(unsigned long*)&data[edx + 4] = ebx;
 		edx = edx + 8;
 	}
 }
 
 
-void pso_crypt_encrypt_bb(PSO_CRYPT *pcry, unsigned char *data, unsigned
+void pso_crypt_encrypt_bb(PSO_CRYPT* pcry, unsigned char* data, unsigned
 	length)
 {
 	unsigned eax, ecx, edx, ebx, ebp, esi, edi;
@@ -6260,12 +6665,12 @@ void pso_crypt_encrypt_bb(PSO_CRYPT *pcry, unsigned char *data, unsigned
 	eax = 0;
 	while (edx < length)
 	{
-		ebx = *(unsigned long *)&data[edx];
+		ebx = *(unsigned long*)&data[edx];
 		ebx = ebx ^ pcry->tbl[0];
 		ebp = ((pcry->tbl[(ebx >> 0x18) + 0x12] + pcry->tbl[((ebx >> 0x10) & 0xff) + 0x112])
 			^ pcry->tbl[((ebx >> 0x8) & 0xff) + 0x212]) + pcry->tbl[(ebx & 0xff) + 0x312];
 		ebp = ebp ^ pcry->tbl[1];
-		ebp ^= *(unsigned long *)&data[edx + 4];
+		ebp ^= *(unsigned long*)&data[edx + 4];
 		edi = ((pcry->tbl[(ebp >> 0x18) + 0x12] + pcry->tbl[((ebp >> 0x10) & 0xff) + 0x112])
 			^ pcry->tbl[((ebp >> 0x8) & 0xff) + 0x212]) + pcry->tbl[(ebp & 0xff) + 0x312];
 		edi = edi ^ pcry->tbl[2];
@@ -6278,8 +6683,8 @@ void pso_crypt_encrypt_bb(PSO_CRYPT *pcry, unsigned char *data, unsigned
 		edi = edi ^ pcry->tbl[4];
 		ebp = ebp ^ pcry->tbl[5];
 		ebx = ebx ^ edi;
-		*(unsigned long *)&data[edx] = ebp;
-		*(unsigned long *)&data[edx + 4] = ebx;
+		*(unsigned long*)&data[edx] = ebp;
+		*(unsigned long*)&data[edx + 4] = ebx;
 		edx = edx + 8;
 	}
 }
@@ -6309,7 +6714,7 @@ void decryptcopy(unsigned char* dest, const unsigned char* src, unsigned size)
 }
 
 
-void pso_crypt_table_init_bb(PSO_CRYPT *pcry, const unsigned char *salt)
+void pso_crypt_table_init_bb(PSO_CRYPT* pcry, const unsigned char* salt)
 {
 	unsigned long eax, ecx, edx, ebx, ebp, esi, edi, ou, x;
 	unsigned char s[48];
@@ -6330,7 +6735,7 @@ void pso_crypt_table_init_bb(PSO_CRYPT *pcry, const unsigned char *salt)
 	eax = 0;
 	ebx = 0;
 
-	for (ecx = 0;ecx<0x12;ecx++)
+	for (ecx = 0;ecx < 0x12;ecx++)
 	{
 		dx = bbtbl[eax++];
 		dx = ((dx & 0xFF) << 8) + (dx >> 8);
@@ -6558,7 +6963,7 @@ void pso_crypt_table_init_bb(PSO_CRYPT *pcry, const unsigned char *salt)
 	}
 }
 
-unsigned RleEncode(unsigned char *src, unsigned char *dest, unsigned src_size)
+unsigned RleEncode(unsigned char* src, unsigned char* dest, unsigned src_size)
 {
 	unsigned char currChar, prevChar;             /* current and previous characters */
 	unsigned short count;                /* number of characters in a run */
@@ -6611,7 +7016,7 @@ unsigned RleEncode(unsigned char *src, unsigned char *dest, unsigned src_size)
 	return (unsigned)dest - dest_start;
 }
 
-void RleDecode(unsigned char *src, unsigned char *dest, unsigned src_size)
+void RleDecode(unsigned char* src, unsigned char* dest, unsigned src_size)
 {
 	unsigned char currChar, prevChar;             /* current and previous characters */
 	unsigned short count;                /* number of characters in a run */
@@ -6656,10 +7061,10 @@ void RleDecode(unsigned char *src, unsigned char *dest, unsigned src_size)
 
 /* expand a key (makes a rc4_key) */
 
-void prepare_key(unsigned char *keydata, unsigned len, struct rc4_key *key)
+void prepare_key(unsigned char* keydata, unsigned len, struct rc4_key* key)
 {
 	unsigned index1, index2, counter;
-	unsigned char *state;
+	unsigned char* state;
 
 	state = key->state;
 
@@ -6682,10 +7087,10 @@ void prepare_key(unsigned char *keydata, unsigned len, struct rc4_key *key)
 
 /* reversible encryption, will encode a buffer updating the key */
 
-void rc4(unsigned char *buffer, unsigned len, struct rc4_key *key)
+void rc4(unsigned char* buffer, unsigned len, struct rc4_key* key)
 {
 	unsigned x, y, xorIndex, counter;
-	unsigned char *state;
+	unsigned char* state;
 
 	/* get local copies */
 	x = key->x; y = key->y;
@@ -6724,7 +7129,7 @@ void compressShipPacket(ORANGE* ship, unsigned char* src, unsigned long src_size
 				dest = &ship->sndbuf[ship->snddata];
 				// Store the original packet size before RLE compression at offset 0x04 of the new packet.
 				dest += 4;
-				*(unsigned *)dest = src_size;
+				*(unsigned*)dest = src_size;
 				// Compress packet using RLE, storing at offset 0x08 of new packet.
 				//
 				// result = size of RLE compressed data + a DWORD for the original packet size.
@@ -6734,14 +7139,14 @@ void compressShipPacket(ORANGE* ship, unsigned char* src, unsigned long src_size
 				// Increase result by the size of a DWORD for the final ship packet size.
 				result += 4;
 				// Copy it to the front of the packet.
-				*(unsigned *)&ship->sndbuf[ship->snddata] = result;
+				*(unsigned*)&ship->sndbuf[ship->snddata] = result;
 				ship->snddata += (int)result;
 			}
 			else
 			{
 				memcpy(&ship->sndbuf[ship->snddata + 4], src, src_size);
 				src_size += 4;
-				*(unsigned *)&ship->sndbuf[ship->snddata] = src_size;
+				*(unsigned*)&ship->sndbuf[ship->snddata] = src_size;
 				ship->snddata += src_size;
 			}
 		}
@@ -6751,30 +7156,30 @@ void compressShipPacket(ORANGE* ship, unsigned char* src, unsigned long src_size
 void decompressShipPacket(ORANGE* ship, unsigned char* dest, unsigned char* src)
 {
 	unsigned src_size, dest_size;
-	unsigned char *srccpy;
+	unsigned char* srccpy;
 
 	if (ship->crypt_on)
 	{
-		src_size = *(unsigned *)src;
+		src_size = *(unsigned*)src;
 		src_size -= 8;
 		src += 4;
 		srccpy = src;
 		// Decrypt RC4
 		rc4(src, src_size + 4, &ship->cs_key);
 		// The first four bytes of the src should now contain the expected uncompressed data size.
-		dest_size = *(unsigned *)srccpy;
+		dest_size = *(unsigned*)srccpy;
 		// Increase expected size by 4 before inserting into the destination buffer.  (To take account for the packet
 		// size DWORD...)
 		dest_size += 4;
-		*(unsigned *)dest = dest_size;
+		*(unsigned*)dest = dest_size;
 		// Decompress the data...
 		RleDecode(srccpy + 4, dest + 4, src_size);
 	}
 	else
 	{
-		src_size = *(unsigned *)src;
+		src_size = *(unsigned*)src;
 		memcpy(dest + 4, src + 4, src_size);
 		src_size += 4;
-		*(unsigned *)dest = src_size;
+		*(unsigned*)dest = src_size;
 	}
 }

@@ -1,4 +1,9 @@
 
+struct timeval select_timeout = {
+	0,
+	5000
+};
+
 /* functions */
 
 void send_to_server(int sock, char* packet);

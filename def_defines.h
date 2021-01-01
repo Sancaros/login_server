@@ -1,16 +1,22 @@
-//数据库相关
-#define SQL
-#define CONNECT_TEST
+
+const wchar_t Message03[22] = { L"Tethealla 登录服务器 v.053" };
+// const char *PSO_CLIENT_VER_STRING = "TethVer12510";
+const char* PSO_CLIENT_VER_STRING = "TethVer12513";
+#define PSO_CLIENT_VER 0x41
 
 #define MAX_SIMULTANEOUS_CONNECTIONS 6
 #define LOGIN_COMPILED_MAX_CONNECTIONS 300
 #define SHIP_COMPILED_MAX_CONNECTIONS 50
 #define MAX_EB02 800000
+#define SERVER_VERSION "0.053"
 #define MAX_ACCOUNTS 2000
 #define MAX_DRESS_FLAGS 500
 #define DRESS_FLAG_EXPIRY 7200
 #define PSO_CLIENT_VER 0x41
 
+
+//#define USEADDR_ANY
+#define SHIP_LISTEN_PORT 3455
 #define DEBUG_OUTPUT
 #define TCP_BUFFER_SIZE 64000
 #define PACKET_BUFFER_SIZE ( TCP_BUFFER_SIZE * 16 )
