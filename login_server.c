@@ -2595,8 +2595,8 @@ void ShipProcessPacket(ORANGE* ship)
 			int teamid;
 			unsigned short privlevel;
 			CHARDATA* PlayerData;
-			CHALLENGEDATA* ChallengeData;
-			BATTLEDATA* BattleData;
+			//CHALLENGEDATA* ChallengeData;
+			//BATTLEDATA* BattleData;
 			unsigned shipid;
 			int sockfd;
 
@@ -2722,10 +2722,6 @@ void ShipProcessPacket(ORANGE* ship)
 				//定义PlayerData为角色数据查询
 				PlayerData = (CHARDATA*)&ship->encryptbuf[0x0C];
 
-				ChallengeData = (CHALLENGEDATA*)&ship->encryptbuf[0x0C];
-
-				BattleData = (BATTLEDATA*)&ship->encryptbuf[0x0C];
-
 				//更新银行仓库信息（包括公共银行）
 				if (char_exists)
 				{
@@ -2784,9 +2780,14 @@ void ShipProcessPacket(ORANGE* ship)
 
 				mysql_free_result(myResult);
 
-				memcpy(&PlayerData->challengeData[0], &ship->decryptbuf[0x0C + 0x140], 320);
+				PlayerData->challengeData[0] = *(unsigned char*)&ship->decryptbuf[0x0C + 0x140];
 
-				memcpy(&PlayerData->battleData[0], &ship->decryptbuf[0x0C + 0x058], 88);
+				//size += sizeof(CHALLENGEDATA);
+
+				PlayerData->battleData[0] = *(unsigned char*)&ship->decryptbuf[0x0C + 0x058];
+
+				//size += sizeof(BATTLEDATA);
+
 				debug("保存用户 %u 槽位:(%02x) 的数据信息", guildcard, slotnum);
 
 				//解包舰船发来的数据 0x01 开始 如果不等于 2
@@ -3135,8 +3136,6 @@ void ShipProcessPacket(ORANGE* ship)
 			unsigned guildcard, ch2;
 			unsigned short slotnum;
 			CHARDATA* character;
-			CHALLENGEDATA* ChallengeData;
-			BATTLEDATA* BattleData;
 
 			unsigned short maxFace, maxHair, maxHairColorRed, maxHairColorBlue, maxHairColorGreen,
 				maxCostume, maxSkin, maxHead;
@@ -3145,10 +3144,6 @@ void ShipProcessPacket(ORANGE* ship)
 			slotnum = *(unsigned short*)&ship->decryptbuf[0x0A];
 
 			character = (CHARDATA*)&ship->decryptbuf[0x0C];
-
-			ChallengeData = (CHALLENGEDATA*)&ship->decryptbuf[0x0C];
-
-			BattleData = (BATTLEDATA*)&ship->decryptbuf[0x0C];
 
 			// Update common bank (A common bank SHOULD exist since they've logged on...) 
 			// 更新共同银行（一个共同的银行应该存在，因为他们已经登录） 
@@ -3268,9 +3263,25 @@ void ShipProcessPacket(ORANGE* ship)
 			}
 #else
 
+			//character->challengeData[0] = 0x140;
+			sprintf_s(myQuery, _countof(myQuery), "UPDATE challenge_data set data = '%s' WHERE guildcard = '%u' AND slot = '%u'", (char*)&character->challengeData[0], guildcard, slotnum);
+			if (!mysql_query(myData, &myQuery[0]))
+			{
+				debug("未查询到用户 %u 槽位:(%02x) 的挑战信息,将为其创建新的数据", guildcard, slotnum);
+				mysql_real_escape_string(myData, &character->challengeData[0], (unsigned char*)&ship->decryptbuf[0x0C + 0x140], 320);
+				sprintf_s(myQuery, _countof(myQuery), "INSERT into challenge_data (guildcard,slot, data) VALUES ('%u','%u','%s')", guildcard, slotnum, (char*)&character->challengeData[0]);
+			}
+
+			//character->battleData[0] = 0x058;
+			sprintf_s(myQuery, _countof(myQuery), "UPDATE battle_data set data = '%s' WHERE guildcard = '%u' AND slot = '%u'", (char*)&character->battleData[0], guildcard, slotnum);
+			if (!mysql_query(myData, &myQuery[0]))
+			{
+				debug("未查询到用户 %u 槽位:(%02x) 的对战信息,将为其创建新的数据", guildcard, slotnum);
+				mysql_real_escape_string(myData, &character->battleData[0], (unsigned char*)&ship->decryptbuf[0x0C + 0x058], 88);
+				sprintf_s(myQuery, _countof(myQuery), "INSERT into battle_data (guildcard,slot, data) VALUES ('%u','%u','%s')", guildcard, slotnum, (char*)&character->battleData[0]);
+			}
 
 			mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&ship->decryptbuf[0x0C], sizeof(CHARDATA));
-
 			sprintf_s(myQuery, _countof(myQuery), "UPDATE character_data set data = '%s' WHERE guildcard = '%u' AND slot = '%u'", (char*)&E7chardata[0], guildcard, slotnum);
 			if (mysql_query(myData, &myQuery[0]))
 			{
