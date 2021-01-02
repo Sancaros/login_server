@@ -2722,9 +2722,9 @@ void ShipProcessPacket(ORANGE* ship)
 				//定义PlayerData为角色数据查询
 				PlayerData = (CHARDATA*)&ship->encryptbuf[0x0C];
 
-				ChallengeData = (CHALLENGEDATA*)&ship->decryptbuf[0x0C];
+				ChallengeData = (CHALLENGEDATA*)&ship->encryptbuf[0x0C];
 
-				BattleData = (BATTLEDATA*)&ship->decryptbuf[0x0C];
+				BattleData = (BATTLEDATA*)&ship->encryptbuf[0x0C];
 
 				//更新银行仓库信息（包括公共银行）
 				if (char_exists)
@@ -2771,17 +2771,6 @@ void ShipProcessPacket(ORANGE* ship)
 
 					size += sizeof(BANK);
 
-
-					//memcpy(&ship->encryptbuf[0x0C + 0x2CC0], &ChallengeData->challengeData, sizeof(CHALLENGEDATA));
-
-
-					//size += sizeof(CHALLENGEDATA);
-
-					//memcpy(&ship->encryptbuf[0x0C + 0x2E54], &BattleData->battleData, sizeof(BATTLEDATA));
-
-
-					//size += sizeof(BATTLEDATA);
-
 					// Update the last used character info... 更新上一次使用时的角色信息
 
 					mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&PlayerData->name[0], 24);
@@ -2794,6 +2783,11 @@ void ShipProcessPacket(ORANGE* ship)
 				}
 
 				mysql_free_result(myResult);
+
+				memcpy(&PlayerData->challengeData[0], &ship->decryptbuf[0x0C + 0x140], 320);
+
+				memcpy(&PlayerData->battleData[0], &ship->decryptbuf[0x0C + 0x058], 88);
+				debug("保存用户 %u 槽位:(%02x) 的数据信息", guildcard, slotnum);
 
 				//解包舰船发来的数据 0x01 开始 如果不等于 2
 				if (ship->encryptbuf[0x01] != 0x02)
@@ -3172,24 +3166,6 @@ void ShipProcessPacket(ORANGE* ship)
 			}
 
 #else
-			/*
-			mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&ship->decryptbuf[0x0C + sizeof(CHARDATA)], sizeof(CHALLENGEDATA));
-			sprintf_s(myQuery, _countof(myQuery), "UPDATE character_data set data = '%s' WHERE guildcard = '%u' AND slot='%u'", (char*)&E7chardata[0], guildcard, slotnum);
-			if (mysql_query(myData, &myQuery[0]))
-			{
-				debug("无法保存公会卡 %u 的仓库数据. \n", guildcard);
-				return;
-			}
-
-			mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&ship->decryptbuf[0x0C + sizeof(CHARDATA)], sizeof(BATTLEDATA));
-			sprintf_s(myQuery, _countof(myQuery), "UPDATE character_data set data = '%s' WHERE guildcard = '%u' AND slot='%u'", (char*)&E7chardata[0], guildcard, slotnum);
-			if (mysql_query(myData, &myQuery[0]))
-			{
-				debug("无法保存公会卡 %u 的仓库数据. \n", guildcard);
-				return;
-			}*/
-			//mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&ship->decryptbuf[0x0C + 0x2CC0], sizeof(CHALLENGEDATA));
-			//mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&ship->decryptbuf[0x0C + 0x2E54], sizeof(BATTLEDATA));
 			mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&ship->decryptbuf[0x0C + sizeof(CHARDATA)], sizeof(BANK));
 
 			sprintf_s(myQuery, _countof(myQuery), "UPDATE bank_data set data = '%s' WHERE guildcard = '%u'", (char*)&E7chardata[0], guildcard);
@@ -3292,35 +3268,6 @@ void ShipProcessPacket(ORANGE* ship)
 			}
 #else
 
-			//memcpy(&ChallengeData->challengeData[0], &ship->decryptbuf[0x0C + 0x2CC0], 320);
-
-			//memcpy(&character->challengeData[0], &ship->decryptbuf[0x0C + 0x2CC0], 320);//取回角色挑战数据
-			//memcpy(&character->battleData[0], &ship->decryptbuf[0x0C + 0x2E54], 88);//取回角色对战数据
-
-
-			//mysql_real_escape_string(myData, &E7chardata[0x2CC0], (unsigned char*)&ship->decryptbuf[0x0C + 0x2CC0], sizeof(CHALLENGEDATA));
-
-			//debug("保存用户 %u 槽位:(%02x) 的挑战信息", guildcard, slotnum);
-
-			//mysql_real_escape_string(myData, &E7chardata[0x2E50], (unsigned char*)&ship->decryptbuf[0x0C + 0x2E50], sizeof(BATTLEDATA));
-			//memcpy(&ChallengeData->challengeData, &character->name, sizeof(CHALLENGEDATA));
-			//mysql_real_escape_string(myData, &E7chardata[0x2CC0], (unsigned char*)&ChallengeData->challengeData[0], sizeof(CHALLENGEDATA));
-
-			//memcpy(&BattleData->battleData, &character->gcString, sizeof(BATTLEDATA));
-			//mysql_real_escape_string(myData, &E7chardata[0x2E50], (unsigned char*)&BattleData->battleData[0], sizeof(BATTLEDATA));
-
-			//mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&ship->decryptbuf[0x0C + sizeof(CHARDATA)], sizeof(BANK));
-			//if (strcmp(&ChallengeData->challengeData, &character->challengeData) != 0) {
-			//memcpy(&ChallengeData->challengeData, &character->challengeData, sizeof(CHALLENGEDATA));
-			mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&ship->decryptbuf[0x0C + 0x2CC0], sizeof(CHALLENGEDATA));
-			debug("保存用户 %u 槽位:(%02x) 的挑战数据\n", guildcard, slotnum);
-			//}
-
-			//if (&BattleData->battleData != &character->battleData) {
-			//memcpy(&BattleData->battleData, &character->battleData, sizeof(BATTLEDATA));
-			mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&ship->decryptbuf[0x0C + 0x2E50], sizeof(BATTLEDATA));
-			//debug("保存用户 %u 槽位:(%02x) 的对战数据\n", guildcard, slotnum);
-			//}
 
 			mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&ship->decryptbuf[0x0C], sizeof(CHARDATA));
 
@@ -3351,12 +3298,11 @@ void ShipProcessPacket(ORANGE* ship)
 				}
 			}
 #else
-
-
 			mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&ship->decryptbuf[0x2FCC], 420); //12236
 			sprintf_s(myQuery, _countof(myQuery), "UPDATE key_data set controls = '%s' WHERE guildcard = '%u'", (char*)&E7chardata[0], guildcard);
 			if (mysql_query(myData, &myQuery[0]))
 				debug(" 无法保存公会卡用户 %u 的控制信息 ", guildcard);
+
 #endif
 		}
 		}
@@ -4612,7 +4558,7 @@ void CharacterProcessPacket(BANANA* client)
 		break;
 	case 0x1D:
 		// Do nothing.啥也不做
-		//printf("探测 CharacterProcessPacket 0x1D 指令 的用途\n");
+		printf("探测 CharacterProcessPacket 0x1D 指令 的用途\n");
 		break;
 	case 0x93: //客户端相应数据包 用于用户认证账户信息
 		if (!client->sendCheck[RECEIVE_PACKET_93]) //如果未接到93指令
