@@ -2606,7 +2606,6 @@ void ShipProcessPacket(ORANGE* ship)
 			sockfd = *(int*)&ship->decryptbuf[0x0C];
 			shipid = *(unsigned*)&ship->decryptbuf[0x10];
 
-
 			ship->encryptbuf[0x00] = 0x04;
 
 			*(unsigned*)&ship->encryptbuf[0x02] = *(unsigned*)&ship->decryptbuf[0x06];
@@ -2781,11 +2780,79 @@ void ShipProcessPacket(ORANGE* ship)
 
 				mysql_free_result(myResult);
 
-				memcpy(&PlayerData->challengeData, &ship->decryptbuf[0x0C + 0x140], 320);
+				int challengeData_exists = 0;
+				//查询挑战数据
+				memcpy(&PlayerData->challengeData, &ship->decryptbuf[0x0C + 0x2CC0], 320);
+				sprintf_s(myQuery, _countof(myQuery), "SELECT * from challenge_data WHERE guildcard='%u' AND slot='%u'", guildcard, slotnum);
+				if (!mysql_query(myData, &myQuery[0]))
+				{
+					myResult = mysql_store_result(myData);
+					challengeData_exists = (int)mysql_num_rows(myResult);
 
-				memcpy(&PlayerData->battleData, &ship->decryptbuf[0x0C + 0x058], 88);
+					//如果在数据中搜索到角色数据
+					if (challengeData_exists)
+					{
+						mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&PlayerData->challengeData[0], 320);
+						sprintf_s(myQuery, _countof(myQuery), "UPDATE challenge_data set data = '%s' WHERE guildcard = '%u' AND slot = '%u'", (char*)&E7chardata[0], guildcard, slotnum);
+						if (mysql_query(myData, &myQuery[0]))
+						{
+							debug("无法保存公会卡 %u 的挑战数据. \n", guildcard);
+						}
+					}
+					else
+					{
+						mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&PlayerData->challengeData[0], 320);
+						sprintf_s(myQuery, _countof(myQuery), "INSERT into challenge_data (guildcard, slot, data) VALUES ('%u','%u','%s')", guildcard, slotnum, (char*)&E7chardata[0]);
+						debug("完成 character_data 数据表操作... ");
+						if (mysql_query(myData, &myQuery[0]))
+						{
+							debug("无法为公会卡 %u 创建挑战数据.", guildcard);
+						}
+					}
+				}
 
-				debug("保存用户 %u 槽位:(%02x) 的数据信息", guildcard, slotnum);
+				mysql_free_result(myResult);
+
+				int battleData_exists = 0;
+				memcpy(&PlayerData->battleData, &ship->decryptbuf[0x0C + 0x2E54], 88);
+				sprintf_s(myQuery, _countof(myQuery), "SELECT * from battle_data WHERE guildcard='%u' AND slot='%u'", guildcard, slotnum);
+				//如果未开始查询
+				if (!mysql_query(myData, &myQuery[0]))
+				{
+					myResult = mysql_store_result(myData);
+					battleData_exists = (int)mysql_num_rows(myResult);
+
+					//如果在数据中搜索到角色数据
+					if (battleData_exists)
+					{
+						mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&PlayerData->battleData[0], 88);
+						sprintf_s(myQuery, _countof(myQuery), "UPDATE battle_data set data = '%s' WHERE guildcard = '%u' AND slot = '%u'", (char*)&E7chardata[0], guildcard, slotnum);
+						if (mysql_query(myData, &myQuery[0]))
+						{
+							debug("无法保存公会卡 %u 的对战数据. \n", guildcard);
+						}
+					}
+					else
+					{
+						mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&PlayerData->battleData[0], 88);
+						sprintf_s(myQuery, _countof(myQuery), "INSERT into battle_data (guildcard, slot, data) VALUES ('%u','%u','%s')", guildcard, slotnum, (char*)&E7chardata[0]);
+						if (mysql_query(myData, &myQuery[0]))
+						{
+							debug("无法为公会卡 %u 创建对战数据.", guildcard);
+						}
+					}
+				}
+
+				mysql_free_result(myResult);
+
+				// Update the last used character info... 更新上一次使用时的角色信息
+
+				mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&PlayerData->name[0], 24);
+				sprintf_s(myQuery, _countof(myQuery), "UPDATE account_data SET lastchar = '%s' WHERE guildcard = '%u'", (char*)&E7chardata[0], PlayerData->guildCard);
+				mysql_query(myData, &myQuery[0]);
+
+
+				//debug("保存用户 %u 槽位:(%02x) 的数据信息", guildcard, slotnum);
 
 				//解包舰船发来的数据 0x01 开始 如果不等于 2
 				if (ship->encryptbuf[0x01] != 0x02)
