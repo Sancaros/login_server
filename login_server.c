@@ -2606,6 +2606,7 @@ void ShipProcessPacket(ORANGE* ship)
 			sockfd = *(int*)&ship->decryptbuf[0x0C];
 			shipid = *(unsigned*)&ship->decryptbuf[0x10];
 
+
 			ship->encryptbuf[0x00] = 0x04;
 
 			*(unsigned*)&ship->encryptbuf[0x02] = *(unsigned*)&ship->decryptbuf[0x06];
@@ -2780,13 +2781,9 @@ void ShipProcessPacket(ORANGE* ship)
 
 				mysql_free_result(myResult);
 
-				PlayerData->challengeData[0] = *(unsigned char*)&ship->decryptbuf[0x0C + 0x140];
+				memcpy(&PlayerData->challengeData, &ship->decryptbuf[0x0C + 0x140], 320);
 
-				//size += sizeof(CHALLENGEDATA);
-
-				PlayerData->battleData[0] = *(unsigned char*)&ship->decryptbuf[0x0C + 0x058];
-
-				//size += sizeof(BATTLEDATA);
+				memcpy(&PlayerData->battleData, &ship->decryptbuf[0x0C + 0x058], 88);
 
 				debug("保存用户 %u 槽位:(%02x) 的数据信息", guildcard, slotnum);
 
@@ -3262,24 +3259,9 @@ void ShipProcessPacket(ORANGE* ship)
 				}
 			}
 #else
+			//memcpy(character->challengeData[0], &ship->decryptbuf[0x0C + 0x140],320);
 
-			//character->challengeData[0] = 0x140;
-			sprintf_s(myQuery, _countof(myQuery), "UPDATE challenge_data set data = '%s' WHERE guildcard = '%u' AND slot = '%u'", (char*)&character->challengeData[0], guildcard, slotnum);
-			if (!mysql_query(myData, &myQuery[0]))
-			{
-				debug("未查询到用户 %u 槽位:(%02x) 的挑战信息,将为其创建新的数据", guildcard, slotnum);
-				mysql_real_escape_string(myData, &character->challengeData[0], (unsigned char*)&ship->decryptbuf[0x0C + 0x140], 320);
-				sprintf_s(myQuery, _countof(myQuery), "INSERT into challenge_data (guildcard,slot, data) VALUES ('%u','%u','%s')", guildcard, slotnum, (char*)&character->challengeData[0]);
-			}
-
-			//character->battleData[0] = 0x058;
-			sprintf_s(myQuery, _countof(myQuery), "UPDATE battle_data set data = '%s' WHERE guildcard = '%u' AND slot = '%u'", (char*)&character->battleData[0], guildcard, slotnum);
-			if (!mysql_query(myData, &myQuery[0]))
-			{
-				debug("未查询到用户 %u 槽位:(%02x) 的对战信息,将为其创建新的数据", guildcard, slotnum);
-				mysql_real_escape_string(myData, &character->battleData[0], (unsigned char*)&ship->decryptbuf[0x0C + 0x058], 88);
-				sprintf_s(myQuery, _countof(myQuery), "INSERT into battle_data (guildcard,slot, data) VALUES ('%u','%u','%s')", guildcard, slotnum, (char*)&character->battleData[0]);
-			}
+			//memcpy(character->battleData[0], &ship->decryptbuf[0x0C + 0x058], 88);
 
 			mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&ship->decryptbuf[0x0C], sizeof(CHARDATA));
 			sprintf_s(myQuery, _countof(myQuery), "UPDATE character_data set data = '%s' WHERE guildcard = '%u' AND slot = '%u'", (char*)&E7chardata[0], guildcard, slotnum);
@@ -3309,6 +3291,11 @@ void ShipProcessPacket(ORANGE* ship)
 				}
 			}
 #else
+
+			//mysql_real_escape_string(myData, &character->challengeData[0], (unsigned char*)&ship->decryptbuf[0x0C + 0x140], 320);
+
+			//mysql_real_escape_string(myData, &character->battleData[0], (unsigned char*)&ship->decryptbuf[0x0C + 0x058], 88);
+
 			mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&ship->decryptbuf[0x2FCC], 420); //12236
 			sprintf_s(myQuery, _countof(myQuery), "UPDATE key_data set controls = '%s' WHERE guildcard = '%u'", (char*)&E7chardata[0], guildcard);
 			if (mysql_query(myData, &myQuery[0]))
