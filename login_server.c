@@ -386,7 +386,7 @@ void convertIPString(char* IPData, unsigned IPLen, int fromConfig)
 						printf("tethealla.ini 已损坏. (无法从文件中读取IP信息!)\n"); else
 						printf("无法确定IP地址.\n");
 					printf("按下 [回车键] 退出");
-					getchar();
+					gets_s(&dp[0], sizeof(dp));
 					exit(1);
 				}
 			}
@@ -399,7 +399,7 @@ void convertIPString(char* IPData, unsigned IPLen, int fromConfig)
 						printf("tethealla.ini 已损坏. (无法从文件中读取IP信息!)\n"); else
 						printf("无法确定IP地址.\n");
 					printf("按下 [回车键] 退出");
-					getchar();
+					gets_s(&dp[0], sizeof(dp));
 					exit(1);
 				}
 				break;
@@ -441,7 +441,7 @@ void construct0xEB()
 	{
 		printf("缺失 e8send.txt\n");
 		printf("按下 [回车键] 退出");
-		getchar();
+		gets_s(&dp[0], sizeof(dp));
 		exit(1);
 	}
 	PacketEB01[0x02] = 0xEB;
@@ -461,7 +461,7 @@ void construct0xEB()
 		{
 			printf("无法打开 %s!\n", &EBFiles[ch][0]);
 			printf("按下 [回车键] 退出");
-			getchar();
+			gets_s(&dp[0], sizeof(dp));
 			exit(1);
 		}
 		fseek(fpb, 0, SEEK_END);
@@ -511,7 +511,7 @@ void construct0xEB()
 		{
 			printf("太多的补丁数据要发送.\n");
 			printf("按下 [回车键] 退出");
-			getchar();
+			gets_s(&dp[0], sizeof(dp));
 			exit(1);
 		}
 	}
@@ -557,7 +557,7 @@ void load_config_file()
 	{
 		printf("设置文件 tethealla.ini 似乎缺失了.\n");
 		printf("按下 [回车键] 退出");
-		getchar();
+		gets_s(&dp[0], sizeof(dp));
 		exit(1);
 	}
 	else
@@ -611,7 +611,7 @@ void load_config_file()
 						if (!pn_host) {
 							printf("无法解析 sanc.top\n");
 							printf("按下 [回车键] 退出");
-							getchar();
+							gets_s(&dp[0], sizeof(dp));
 							exit(1);
 						}
 
@@ -620,7 +620,7 @@ void load_config_file()
 						{
 							printf("无法创建TCP/IP流套接字.");
 							printf("按下 [回车键] 退出");
-							getchar();
+							gets_s(&dp[0], sizeof(dp));
 							exit(1);
 						}
 
@@ -638,7 +638,7 @@ void load_config_file()
 						{
 							printf("\n无法连接至 sanc.top!");
 							printf("按下 [回车键] 退出");
-							getchar();
+							gets_s(&dp[0], sizeof(dp));
 							exit(1);
 						}
 
@@ -698,7 +698,7 @@ void load_config_file()
 					// Override IP address (if specified, this IP will be sent out instead of your own to those who connect)
 					if (config_data[0] > 0x30)
 					{
-						if (override_on = 1)
+						if (override_on == 1)
 						{
 							struct hostent* IP_host;
 							//这里域名竟然-1,待解决
@@ -791,7 +791,7 @@ void load_config_file()
 	{
 		printf("tethealla.ini seems to be corrupted.\n");
 		printf("按下 [回车键] 退出");
-		getchar();
+		gets_s(&dp[0], sizeof(dp));
 		exit(1);
 	}
 }
@@ -2362,13 +2362,13 @@ void ShipProcessPacket(ORANGE* ship)
 			shipOK = 1;
 
 			memcpy(&ship->name[0], &ship->decryptbuf[0x2C], 12);
-			ship->name[14] = 0x00;
+			ship->name[13] = 0x00;
 			ship->playerCount = *(unsigned*)&ship->decryptbuf[0x38];
 			if (ship->decryptbuf[0x3C] == 0x00)
 				*(unsigned*)&ship->shipAddr[0] = *(unsigned*)&ship->listenedAddr[0];
 			else
 				*(unsigned*)&ship->shipAddr[0] = *(unsigned*)&ship->decryptbuf[0x3C];
-			ship->shipAddr[6] = 0;
+			ship->shipAddr[5] = 0;
 			ship->shipPort = *(unsigned short*)&ship->decryptbuf[0x40];
 
 			/*
@@ -2595,8 +2595,6 @@ void ShipProcessPacket(ORANGE* ship)
 			int teamid;
 			unsigned short privlevel;
 			CHARDATA* PlayerData;
-			//CHALLENGEDATA* ChallengeData;
-			//BATTLEDATA* BattleData;
 			unsigned shipid;
 			int sockfd;
 
@@ -2783,6 +2781,8 @@ void ShipProcessPacket(ORANGE* ship)
 				int challengeData_exists = 0;
 				//查询挑战数据
 				memcpy(&PlayerData->challengeData, &ship->decryptbuf[0x0C + 0x2CC0], 320);
+				memcpy(&ship->encryptbuf[0x0C + 0x2CC0], &PlayerData->challengeData, 320);
+				size += 320;
 				sprintf_s(myQuery, _countof(myQuery), "SELECT * from challenge_data WHERE guildcard='%u' AND slot='%u'", guildcard, slotnum);
 				if (!mysql_query(myData, &myQuery[0]))
 				{
@@ -2815,6 +2815,8 @@ void ShipProcessPacket(ORANGE* ship)
 
 				int battleData_exists = 0;
 				memcpy(&PlayerData->battleData, &ship->decryptbuf[0x0C + 0x2E54], 88);
+				memcpy(&ship->encryptbuf[0x0C + 0x2CC0], &PlayerData->battleData, 88);
+				size += 88;
 				sprintf_s(myQuery, _countof(myQuery), "SELECT * from battle_data WHERE guildcard='%u' AND slot='%u'", guildcard, slotnum);
 				//如果未开始查询
 				if (!mysql_query(myData, &myQuery[0]))
@@ -2896,7 +2898,7 @@ void ShipProcessPacket(ORANGE* ship)
 							memset(&PlayerData->serial_number, 0, 0x83C);
 					}
 					else
-						ship->encryptbuf[0x01] = 0x03; // 03指令？
+						ship->encryptbuf[0x01] = 0x02; // fail
 
 					PlayerData->teamRank = 0x00986C84; // ?? 应该是排行榜未完成的参数了
 					memset(&PlayerData->teamRewards[0], 0xFF, 4);
@@ -2906,291 +2908,6 @@ void ShipProcessPacket(ORANGE* ship)
 			else
 				debug("无法为用户 %u 更新银行数据", guildcard);
 
-
-
-			////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-			/*int challengeData_exists = 0;
-
-			ship->encryptbuf[0x00] = 0x04;
-
-			*(unsigned*)&ship->encryptbuf[0x02] = *(unsigned*)&ship->decryptbuf[0x06];
-			*(unsigned short*)&ship->encryptbuf[0x06] = *(unsigned short*)&ship->decryptbuf[0x0A];
-			*(unsigned*)&ship->encryptbuf[0x08] = *(unsigned*)&ship->decryptbuf[0x0C];
-
-			sprintf_s(myQuery, _countof(myQuery), "SELECT * from character_data WHERE guildcard='%u' AND slot='%u'", guildcard, slotnum);
-
-			//debug ("MySQL查询正在执行中... %s ", &myQuery[0] );
-
-			if (!mysql_query(myData, &myQuery[0]))
-			{
-				myResult = mysql_store_result(myData);
-				char_exists = (int)mysql_num_rows(myResult);
-
-				//数据包大小 12 字节
-				size = 0x0C;
-
-				//定义PlayerData为角色数据查询
-				PlayerData = (CHARDATA*)&ship->encryptbuf[0x0C];
-
-				if (char_exists)
-				{
-					myRow = mysql_fetch_row(myResult);
-					memcpy(&ship->encryptbuf[0x0C], myRow[2], sizeof(CHARDATA));
-					size += sizeof(CHARDATA);
-					ship->encryptbuf[0x01] = 0x01; // success 成功
-												   // Get the common bank or create it 获得公共银行或创建它
-					//查询挑战数据
-					sprintf_s(myQuery, _countof(myQuery), "SELECT * from challenge_data WHERE guildcard='%u' AND slot='%u'", guildcard, slotnum);
-
-					//如果未开始查询
-					if (!mysql_query(myData, &myQuery[0]))
-					{
-						myResult = mysql_store_result(myData);
-						challengeData_exists = (int)mysql_num_rows(myResult);
-
-						//如果在数据中搜索到角色数据
-						if (challengeData_exists)
-						{
-							myRow = mysql_fetch_row(myResult);
-							memcpy(&ship->encryptbuf[0x0C + sizeof(CHARDATA)], myRow[2], sizeof(CHALLENGEDATA));
-						}
-						else
-						{
-							debug ("正在检索一些信息 character_data 数据表操作... ");
-							// 将挑战数据存储在E7数据包中。。。
-							memcpy(&ship->encryptbuf[0x0C + sizeof(CHARDATA)], &ship->decryptbuf[0x0C + 0x2CC0], sizeof(CHALLENGEDATA));
-							mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&ship->decryptbuf[0x0C + 0x2CC0], sizeof(CHALLENGEDATA));
-							strd(&E7chardata[0]);
-							sprintf_s(myQuery, _countof(myQuery), "INSERT into challenge_data (guildcard, slot, data) VALUES ('%u','%u','%s')", guildcard, slotnum, (char*)&E7chardata[0]);
-
-							debug("完成 character_data 数据表操作... ");
-							if (mysql_query(myData, &myQuery[0]))
-							{
-								debug("无法为公会卡 %u 创建挑战数据.", guildcard);
-								//return;
-							}
-						}
-					}
-					else
-					{
-						memcpy(&ship->encryptbuf[0x0C + sizeof(CHARDATA)], &ship->decryptbuf[0x0C + 0x2CC0], sizeof(CHALLENGEDATA));
-					}
-
-					size += sizeof(CHALLENGEDATA);
-					// Update the last used character info... 更新上一次使用时的角色信息
-
-					mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&PlayerData->name[0], 24);
-					sprintf_s(myQuery, _countof(myQuery), "UPDATE account_data SET lastchar = '%s' WHERE guildcard = '%u'", (char*)&E7chardata[0], PlayerData->guildCard);
-					mysql_query(myData, &myQuery[0]);
-				}
-				else {
-					ship->encryptbuf[0x01] = 0x02; // 失败指令？
-				}
-
-				//解包舰船发来的数据 0x01 开始 如果不等于 2
-				if (ship->encryptbuf[0x01] != 0x02)
-				{
-					//公会信息查询 teamid 公会ID ,privlevel 公会权限
-					sprintf_s(myQuery, _countof(myQuery), "SELECT teamid,privlevel from account_data WHERE guildcard='%u'", guildcard);
-
-					//如果未开始查询
-					if (!mysql_query(myData, &myQuery[0]))
-					{
-						myResult = mysql_store_result(myData);
-						myRow = mysql_fetch_row(myResult);
-
-						teamid = atoi(myRow[0]); //(表示 ascii to integer)是把字符串myRow[0]转换成整型数teamid
-						privlevel = atoi(myRow[1]);//(表示 ascii to integer)是把字符串myRow[1]转换成整型数privlevel
-
-						mysql_free_result(myResult);
-
-						//如果在公会中或拥有公会
-						if (teamid != -1)
-						{
-							//debug ("正在检索一些信息 team_data 数据表操作... ");
-							// Store the team information in the E7 packet...将团队信息存储在E7数据包中。。。
-							PlayerData->serial_number = PlayerData->serial_number;
-							PlayerData->teamID = (unsigned)teamid;
-							PlayerData->privilegeLevel = privlevel;
-							sprintf_s(myQuery, _countof(myQuery), "SELECT name,flag from team_data WHERE teamid = '%i'", teamid);
-							if (!mysql_query(myData, &myQuery[0]))
-							{
-								myResult = mysql_store_result(myData);
-								myRow = mysql_fetch_row(myResult);
-								PlayerData->teamName[0] = 0x09;
-								PlayerData->teamName[2] = 0x45;
-								memcpy(&PlayerData->teamName[4], myRow[0], 24);
-								memcpy(&PlayerData->teamFlag[0], myRow[1], 2048);
-
-								mysql_free_result(myResult);
-							}
-						}
-						else
-							memset(&PlayerData->serial_number, 0, 0x83C);
-					}
-					else
-						ship->encryptbuf[0x01] = 0x03; // 03指令？
-
-					PlayerData->teamRank = 0x00986C84; // ?? 应该是排行榜未完成的参数了
-					memset(&PlayerData->teamRewards[0], 0xFF, 4);
-				}				//解包舰船发来的数据 0x01 开始 如果不等于 2
-				compressShipPacket(ship, &ship->encryptbuf[0x00], size);
-			}
-			else {
-				debug("无法为用户 %u 更新对战数据", guildcard);
-			}
-
-			int battleData_exists = 0;
-
-			ship->encryptbuf[0x00] = 0x04;
-
-			*(unsigned*)&ship->encryptbuf[0x02] = *(unsigned*)&ship->decryptbuf[0x06];
-			*(unsigned short*)&ship->encryptbuf[0x06] = *(unsigned short*)&ship->decryptbuf[0x0A];
-			*(unsigned*)&ship->encryptbuf[0x08] = *(unsigned*)&ship->decryptbuf[0x0C];
-
-			sprintf_s(myQuery, _countof(myQuery), "SELECT * from character_data WHERE guildcard='%u' AND slot='%u'", guildcard, slotnum);
-
-			//debug ("MySQL查询正在执行中... %s ", &myQuery[0] );
-
-			if (!mysql_query(myData, &myQuery[0]))
-			{
-				myResult = mysql_store_result(myData);
-				char_exists = (int)mysql_num_rows(myResult);
-
-				//数据包大小 12 字节
-				size = 0x0C;
-
-				//定义PlayerData为角色数据查询
-				PlayerData = (CHARDATA*)&ship->encryptbuf[0x0C];
-
-				if (char_exists)
-				{
-					myRow = mysql_fetch_row(myResult);
-					memcpy(&ship->encryptbuf[0x0C], myRow[2], sizeof(CHARDATA));
-					size += sizeof(CHARDATA);
-					ship->encryptbuf[0x01] = 0x01; // success 成功
-												   // Get the common bank or create it 获得公共银行或创建它
-					//查询挑战数据
-					sprintf_s(myQuery, _countof(myQuery), "SELECT * from battle_data WHERE guildcard='%u' AND slot='%u'", guildcard, slotnum);
-
-					//如果未开始查询
-					if (!mysql_query(myData, &myQuery[0]))
-					{
-						myResult = mysql_store_result(myData);
-						battleData_exists = (int)mysql_num_rows(myResult);
-
-						//如果在数据中搜索到角色数据
-						if (battleData_exists)
-						{
-							myRow = mysql_fetch_row(myResult);
-							memcpy(&ship->encryptbuf[0x0C + sizeof(CHARDATA)], myRow[2], sizeof(BATTLEDATA));
-						}
-						else
-						{
-							//debug ("正在检索一些信息 character_data 数据表操作... ");
-							// 将挑战数据存储在E7数据包中。。。
-							memcpy(&ship->encryptbuf[0x0C + sizeof(CHARDATA)], &ship->decryptbuf[0x0C + 0x2E54], sizeof(BATTLEDATA));
-							mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&ship->decryptbuf[0x0C + 0x2E54], sizeof(BATTLEDATA));
-							sprintf_s(myQuery, _countof(myQuery), "INSERT into battle_data (guildcard, slot, data) VALUES ('%u','%u','%s')", guildcard, slotnum, (char*)&E7chardata[0]);
-
-							if (mysql_query(myData, &myQuery[0]))
-							{
-								debug("无法为公会卡 %u 创建挑战数据.", guildcard);
-								//return;
-							}
-						}
-					}
-					else
-					{
-						memcpy(&ship->encryptbuf[0x0C + sizeof(CHARDATA)], &ship->decryptbuf[0x0C + 0x2E54], sizeof(BATTLEDATA));
-					}
-
-					size += sizeof(BATTLEDATA);
-					// Update the last used character info... 更新上一次使用时的角色信息
-
-					mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&PlayerData->name[0], 24);
-					sprintf_s(myQuery, _countof(myQuery), "UPDATE account_data SET lastchar = '%s' WHERE guildcard = '%u'", (char*)&E7chardata[0], PlayerData->guildCard);
-					mysql_query(myData, &myQuery[0]);
-				}
-				else {
-					ship->encryptbuf[0x01] = 0x02; // 失败指令？
-				}
-
-				//解包舰船发来的数据 0x01 开始 如果不等于 2
-				if (ship->encryptbuf[0x01] != 0x02)
-				{
-					//公会信息查询 teamid 公会ID ,privlevel 公会权限
-					sprintf_s(myQuery, _countof(myQuery), "SELECT teamid,privlevel from account_data WHERE guildcard='%u'", guildcard);
-
-					//如果未开始查询
-					if (!mysql_query(myData, &myQuery[0]))
-					{
-						myResult = mysql_store_result(myData);
-						myRow = mysql_fetch_row(myResult);
-
-						teamid = atoi(myRow[0]); //(表示 ascii to integer)是把字符串myRow[0]转换成整型数teamid
-						privlevel = atoi(myRow[1]);//(表示 ascii to integer)是把字符串myRow[1]转换成整型数privlevel
-
-						mysql_free_result(myResult);
-
-						//如果在公会中或拥有公会
-						if (teamid != -1)
-						{
-							//debug ("正在检索一些信息 team_data 数据表操作... ");
-							// Store the team information in the E7 packet...将团队信息存储在E7数据包中。。。
-							PlayerData->serial_number = PlayerData->serial_number;
-							PlayerData->teamID = (unsigned)teamid;
-							PlayerData->privilegeLevel = privlevel;
-							sprintf_s(myQuery, _countof(myQuery), "SELECT name,flag from team_data WHERE teamid = '%i'", teamid);
-							if (!mysql_query(myData, &myQuery[0]))
-							{
-								myResult = mysql_store_result(myData);
-								myRow = mysql_fetch_row(myResult);
-								PlayerData->teamName[0] = 0x09;
-								PlayerData->teamName[2] = 0x45;
-								memcpy(&PlayerData->teamName[4], myRow[0], 24);
-								memcpy(&PlayerData->teamFlag[0], myRow[1], 2048);
-
-								mysql_free_result(myResult);
-							}
-						}
-						else
-							memset(&PlayerData->serial_number, 0, 0x83C);
-					}
-					else
-						ship->encryptbuf[0x01] = 0x03; // 03指令？
-
-					PlayerData->teamRank = 0x00986C84; // ?? 应该是排行榜未完成的参数了
-					memset(&PlayerData->teamRewards[0], 0xFF, 4);
-				}				//解包舰船发来的数据 0x01 开始 如果不等于 2
-				compressShipPacket(ship, &ship->encryptbuf[0x00], size);
-			}
-			else {
-				debug("无法为用户 %u 更新对战数据", guildcard);
-			}*/
-
-			///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-			//此处做为客户端的数据回传至单独的数据库存储12.30
-			/*
-			debug("尝试上传角色 %u 的 对战模式 数据至数据库\n\n", guildcard);
-			mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&ship->decryptbuf[0x0C + 0x2CC0], sizeof(CHALLENGEDATA));
-			sprintf_s(myQuery, _countof(myQuery), "INSERT INTO challenge_data (guildcard,slot,data) VALUES ('%u','%u','%s')", guildcard, slotnum, &E7chardata[0]);
-			strd(&ship->decryptbuf[0x0C + 0x2CC0]);//已经定义该函数(unsigned char*)
-			if (mysql_query(myData, &myQuery[0]))
-			{
-				debug("无法为更新公会卡 %u 的挑战数据. \n", guildcard);
-				//return;
-			}
-
-			WriteLog("尝试上传角色 %u 的 挑战模式 数据至数据库\n\n", guildcard);
-			mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&ship->decryptbuf[0x0C + 0x2E54], sizeof(BATTLEDATA));
-			sprintf_s(myQuery, _countof(myQuery), "UPDATE battle_data set data = '%s' WHERE guildcard = '%u' AND slot = '%u'", &E7chardata[0], guildcard, slotnum);
-			if (mysql_query(myData, &myQuery[0]))
-			{
-				debug("无法保存公会卡 %u 的对战数据. \n", guildcard);
-				//return;
-			}*/
-			///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #endif
 		}
 		//printf("探测 ShipProcessPacket 0x04 指令的用途 用户恢复银行 工会 数据\n");
@@ -3326,9 +3043,6 @@ void ShipProcessPacket(ORANGE* ship)
 				}
 			}
 #else
-			//memcpy(character->challengeData[0], &ship->decryptbuf[0x0C + 0x140],320);
-
-			//memcpy(character->battleData[0], &ship->decryptbuf[0x0C + 0x058], 88);
 
 			mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&ship->decryptbuf[0x0C], sizeof(CHARDATA));
 			sprintf_s(myQuery, _countof(myQuery), "UPDATE character_data set data = '%s' WHERE guildcard = '%u' AND slot = '%u'", (char*)&E7chardata[0], guildcard, slotnum);
@@ -3358,10 +3072,6 @@ void ShipProcessPacket(ORANGE* ship)
 				}
 			}
 #else
-
-			//mysql_real_escape_string(myData, &character->challengeData[0], (unsigned char*)&ship->decryptbuf[0x0C + 0x140], 320);
-
-			//mysql_real_escape_string(myData, &character->battleData[0], (unsigned char*)&ship->decryptbuf[0x0C + 0x058], 88);
 
 			mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&ship->decryptbuf[0x2FCC], 420); //12236
 			sprintf_s(myQuery, _countof(myQuery), "UPDATE key_data set controls = '%s' WHERE guildcard = '%u'", (char*)&E7chardata[0], guildcard);
@@ -5329,7 +5039,7 @@ void LoadQuestAllow()
 	{
 		printf("questitem.txt 文件缺失.\n");
 		printf("按下 [回车键] 退出...");
-		getchar();
+		gets_s(&dp[0], sizeof(dp));
 		exit(1);
 	}
 	else
@@ -5574,7 +5284,7 @@ void LoadDataFile(const char* filename, unsigned* count, void** data, unsigned r
 			if (!data[ch])
 			{
 				printf("内存不足!\nHit [ENTER]");
-				getchar();
+				gets_s(&dp[0], sizeof(dp));
 				exit(1);
 			}
 			fread(data[ch], 1, record_size, fp);
@@ -5712,7 +5422,7 @@ int main(int argc, char* argv[])
 	{
 		printf("文件 plyleveltbl.bin 缺失!\n");
 		printf("按下 [回车键] 退出");
-		getchar();
+		gets_s(&dp[0], sizeof(dp));
 		exit(1);
 	}
 	fread(&startingStats[0], 1, 12 * 14, fp);
@@ -5724,7 +5434,7 @@ int main(int argc, char* argv[])
 	{
 		printf("文件 e2base.bin 缺失!\n");
 		printf("按下 [回车键] 退出");
-		getchar();
+		gets_s(&dp[0], sizeof(dp));
 		exit(1);
 	}
 	fread(&E2_Base[0], 1, 2808, fp);
@@ -5736,7 +5446,7 @@ int main(int argc, char* argv[])
 	{
 		printf("文件 e7base.bin 缺失!\n");
 		printf("按下 [回车键] 退出");
-		getchar();
+		gets_s(&dp[0], sizeof(dp));
 		exit(1);
 	}
 	fread(&E7_Base, 1, sizeof(CHARDATA), fp);
@@ -5777,7 +5487,7 @@ int main(int argc, char* argv[])
 		{
 			printf("内存不足!\n");
 			printf("按下 [回车键] 退出");
-			getchar();
+			gets_s(&dp[0], sizeof(dp));
 			exit(1);
 		}
 		initialize_connection(connections[ch]);
@@ -5792,7 +5502,7 @@ int main(int argc, char* argv[])
 		{
 			printf("内存不足!\n");
 			printf("按下 [回车键] 退出");
-			getchar();
+			gets_s(&dp[0], sizeof(dp));
 			exit(1);
 		}
 		initialize_ship(ships[ch]);
@@ -5883,7 +5593,7 @@ int main(int argc, char* argv[])
 	{
 		printf("文件 default.flag 缺失!\n");
 		printf("按下 [回车键] 退出");
-		getchar();
+		gets_s(&dp[0], sizeof(dp));
 		exit(1);
 	}
 	fread(&DefaultTeamFlag[0], 1, 2048, fp);
@@ -5945,7 +5655,7 @@ int main(int argc, char* argv[])
 	{
 		printf("无法打开连接端口.\n");
 		printf("按下 [回车键] 退出");
-		getchar();
+		gets_s(&dp[0], sizeof(dp));
 		exit(1);
 	}
 
@@ -6092,12 +5802,14 @@ int main(int argc, char* argv[])
 					workConnect->fromBytesSec /= ch2;
 				}
 
-				if (((unsigned)servertime - workConnect->connected >= 3600) ||
+				/*
+					if (((unsigned) servertime - workConnect->connected >= 300) ||
 					(workConnect->connected > (unsigned)servertime))
 				{
 					Send1A("You have been idle for too long.  Disconnecting...", workConnect);
 					workConnect->todc = 1;
 				}
+					*/
 
 				FD_SET(workConnect->plySockfd, &ReadFDs);
 				nfds = max(nfds, workConnect->plySockfd);
@@ -6484,7 +6196,7 @@ void send_to_server(int sock, char* packet)
 	{
 		printf("send_to_server(): 失败");
 		printf("按下 [回车键] 退出");
-		getchar();
+		gets_s(&dp[0], sizeof(dp));
 		exit(1);
 	}
 
@@ -6498,7 +6210,7 @@ int receive_from_server(int sock, char* packet)
 	{
 		printf("receive_from_server(): 失败");
 		printf("按下 [回车键] 退出");
-		getchar();
+		gets_s(&dp[0], sizeof(dp));
 		exit(1);
 	}
 	packet[pktlen] = 0;
@@ -6511,7 +6223,7 @@ void tcp_listen(int sockfd)
 	{
 		debug_perror("无法监听连接状态");
 		printf("按下 [回车键] 退出");
-		getchar();
+		gets_s(&dp[0], sizeof(dp));
 		exit(1);
 	}
 }
@@ -6571,7 +6283,7 @@ int tcp_sock_open(struct in_addr ip, int port)
 	if (fd < 0) {
 		debug_perror("无法创建套接字");
 		printf("按下 [回车键] 退出");
-		getchar();
+		gets_s(&dp[0], sizeof(dp));
 		exit(1);
 	}
 
@@ -6587,7 +6299,7 @@ int tcp_sock_open(struct in_addr ip, int port)
 	if (bind(fd, (struct sockaddr*)&sa, sizeof(struct sockaddr)) < 0) {
 		debug_perror("无法绑定端口");
 		printf("按下 [回车键] 退出");
-		getchar();
+		gets_s(&dp[0], sizeof(dp));
 		exit(1);
 	}
 
