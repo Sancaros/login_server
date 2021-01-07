@@ -59,6 +59,9 @@
     <ClInclude Include="def_defines.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Load_files.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Image Include="C:\login_icon.ico">

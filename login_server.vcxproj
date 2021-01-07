@@ -107,6 +107,7 @@
     <ClInclude Include="def_funcs.h" />
     <ClInclude Include="def_packets.h" />
     <ClInclude Include="def_struct.h" />
+    <ClInclude Include="Load_files.h" />
     <ClInclude Include="login_server.h" />
     <ClInclude Include="pso_crypt.h" />
     <ClInclude Include="resource.h" />

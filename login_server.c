@@ -698,7 +698,7 @@ void load_config_file()
 					// Override IP address (if specified, this IP will be sent out instead of your own to those who connect)
 					if (config_data[0] > 0x30)
 					{
-						if (override_on == 1)
+						if (override_on = 1)
 						{
 							struct hostent* IP_host;
 							//这里域名竟然-1,待解决
@@ -1160,13 +1160,13 @@ void SendE2(BANANA* client)
 			key_exists = (int)mysql_num_rows(myResult);
 			if (key_exists)
 			{
-				debug("密匙数据已找到, 对比中...");
+				//debug("密匙数据已找到, 对比中...");
 				myRow = mysql_fetch_row(myResult);
 				memcpy(&PacketE2Data[0x11C], myRow[1], 420);
 			}
 			else
 			{
-				debug("密匙数据不存在...");
+				//debug("密匙数据不存在...");
 				mysql_real_escape_string(myData, &key_data_send[0], &E2_Base[0x11C], 420);
 				sprintf_s(myQuery, _countof(myQuery), "INSERT INTO key_data (guildcard, controls) VALUES ('%u','%s')", client->guildcard, (char*)&key_data_send[0]);
 				memcpy(&PacketE2Data[0x11C], &E2_Base[0x11C], 420);
@@ -1306,18 +1306,19 @@ void AckCharacter_Creation(unsigned char slotnum, BANANA* client)
 
 #endif
 
-																							 /* Let's construct the FULL character now... 现在我们来构造完整的角色*/
-																							 //初始化一个角色
+			/* Let's construct the FULL character now... 现在我们来构造完整的角色*/
+			//初始化一个角色
 			E7Base = &E7_Base; //定义为一个空的角色
 			NewE7 = &E7_Work; //定义为一个正在设定的角色
 			memset(NewE7, 0, sizeof(CHARDATA)); //角色缓存器初始化
-			NewE7->packetSize = 0x39A0; //数据包大小 14752
+			NewE7->packetSize = 0x399C; //数据包大小 14752
 										//NewE7->packetSize = 0x399C; //数据包大小 14748
-
 			NewE7->command = 0x00E7; //指令初始化
-
 			memset(&NewE7->flags, 0, 4); //缓存器初始化 占用4个字节
-
+			//调换一下代码位置 以匹配字节结构
+			NewE7->HPmat = 0; //血量
+			NewE7->TPmat = 0; //魔力
+			NewE7->lang = 0; //语言
 			switch (clientchar->_class) //切换到职业选择
 			{
 			case CLASS_HUMAR: //人类男
@@ -1353,12 +1354,6 @@ void AckCharacter_Creation(unsigned char slotnum, BANANA* client)
 			default:
 				break;
 			}
-
-			//调换一下代码位置 以匹配字节结构
-			NewE7->HPmat = 0; //血量
-			NewE7->TPmat = 0; //魔力
-			NewE7->lang = 0; //语言
-
 							 // Frame 框架
 			NewE7->inventory[1].in_use = 0x01;
 			NewE7->inventory[1].flags = 0x08;
@@ -1465,11 +1460,8 @@ void AckCharacter_Creation(unsigned char slotnum, BANANA* client)
 				n++;
 			}
 			memcpy(&NewE7->name, &clientchar->name, 24); //来自于小人物角色资料结构
-
 			*(unsigned*)&NewE7->unknown6 = *(unsigned*)&clientchar->unknown5; //来自于小人物角色资料结构
-
 			memcpy(&NewE7->keyConfig, &E7Base->keyConfig, 232);
-
 			// TO DO: Give Foie to starting Forces.举手投足 未完成的 让佛恩开始变得强力
 			memcpy(&NewE7->techniques, &E7Base->techniques, 20);
 			memcpy(&NewE7->name3, &E7Base->name3, 16);
@@ -1482,17 +1474,13 @@ void AckCharacter_Creation(unsigned char slotnum, BANANA* client)
 			//名片相关的
 			NewE7->guildCard = client->guildcard;
 			memcpy(&NewE7->friendName, &clientchar->name, 24);
-
 			memcpy(&NewE7->unknown9, &E7Base->unknown9, 56);
-
 			memcpy(&NewE7->friendText, &E7Base->friendText, 176);
 			NewE7->reserved1 = 0x01;
 			NewE7->reserved2 = 0x01;
 			NewE7->sectionID2 = clientchar->sectionID; //来自于小人物角色资料结构
 			NewE7->_class2 = clientchar->_class; //来自于小人物角色资料结构
-
 			*(unsigned*)&NewE7->unknown10[0] = *(unsigned*)&E7Base->unknown10[0];
-
 			memcpy(&NewE7->symbol_chats, &E7Base->symbol_chats, 1248);
 			memcpy(&NewE7->shortcuts, &E7Base->shortcuts, 2624);
 			memcpy(&NewE7->autoReply, &E7Base->autoReply, 344);
@@ -1500,9 +1488,8 @@ void AckCharacter_Creation(unsigned char slotnum, BANANA* client)
 			memcpy(&NewE7->unknown12, &E7Base->unknown12, 200);
 			memcpy(&NewE7->challengeData, &E7Base->challengeData, 320);
 			memcpy(&NewE7->techConfig, &E7Base->techConfig, 40);
-			memcpy(&NewE7->unknown13, &E7Base->unknown13, 44);
-			memcpy(&NewE7->battleData, &E7Base->battleData, 88);
-
+			memcpy(&NewE7->unknown13, &E7Base->unknown13, 40);
+			memcpy(&NewE7->battleData, &E7Base->battleData, 92);
 			memcpy(&NewE7->unknown14, &E7Base->unknown14, 276); //应该是和公会有关吧
 																// TO DO: Actually, we should use the values from the database, but I haven't added columns for them yet... 实际上，我们应该使用数据库中的值，但是我还没有为它们添加列 
 																// For now, we'll use the "base" packet's values. 现在，我们将使用“base”包的值 
@@ -1623,6 +1610,10 @@ void AckCharacter_Creation(unsigned char slotnum, BANANA* client)
 				{
 					// Delete character if recreating...如果重建角色则删除原角色
 					sprintf_s(myQuery, _countof(myQuery), "DELETE from character_data WHERE guildcard='%u' AND slot ='%u'", client->guildcard, slotnum);
+					mysql_query(myData, &myQuery[0]);
+					sprintf_s(myQuery, _countof(myQuery), "DELETE from challenge_data WHERE guildcard='%u' AND slot ='%u'", client->guildcard, slotnum);
+					mysql_query(myData, &myQuery[0]);
+					sprintf_s(myQuery, _countof(myQuery), "DELETE from battle_data WHERE guildcard='%u' AND slot ='%u'", client->guildcard, slotnum);
 					mysql_query(myData, &myQuery[0]);
 				}
 				else
@@ -2041,6 +2032,7 @@ const unsigned char RC4publicKey[32] = {
 	6, 95, 151, 28, 140, 243, 130, 61, 107, 234, 243, 172, 77, 24, 229, 156
 };
 
+//章节掉落表
 void ShipSend0F(unsigned char episode, unsigned char part, ORANGE* ship)
 {
 	ship->encryptbuf[0x00] = 0x0F;
@@ -2061,6 +2053,7 @@ void ShipSend0F(unsigned char episode, unsigned char part, ORANGE* ship)
 	compressShipPacket(ship, &ship->encryptbuf[0], 3 + (sizeof(rt_tables_ep1) >> 1));
 }
 
+//怪物出现几率
 void ShipSend10(ORANGE* ship)
 {
 	ship->encryptbuf[0x00] = 0x10;
@@ -2078,7 +2071,7 @@ void ShipSend11(ORANGE* ship)
 	compressShipPacket(ship, &ship->encryptbuf[0], 4);
 }
 
-
+//RC4key
 void ShipSend00(ORANGE* ship)
 {
 	unsigned char ch, ch2;
@@ -2780,10 +2773,7 @@ void ShipProcessPacket(ORANGE* ship)
 
 				int challengeData_exists = 0;
 				//查询挑战数据
-				memcpy(&PlayerData->challengeData, &ship->decryptbuf[0x0C + 0x2CC0], 320);
-				memcpy(&ship->encryptbuf[0x0C + 0x2CC0], &PlayerData->challengeData, 320);
-				size += 320;
-				sprintf_s(myQuery, _countof(myQuery), "SELECT * from challenge_data WHERE guildcard='%u' AND slot='%u'", guildcard, slotnum);
+				sprintf_s(myQuery, _countof(myQuery), "SELECT * from challenge_data WHERE guildcard='%u' AND slot='%u'", PlayerData->guildCard, slotnum);
 				if (!mysql_query(myData, &myQuery[0]))
 				{
 					myResult = mysql_store_result(myData);
@@ -2792,32 +2782,34 @@ void ShipProcessPacket(ORANGE* ship)
 					//如果在数据中搜索到角色数据
 					if (challengeData_exists)
 					{
-						mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&PlayerData->challengeData[0], 320);
-						sprintf_s(myQuery, _countof(myQuery), "UPDATE challenge_data set data = '%s' WHERE guildcard = '%u' AND slot = '%u'", (char*)&E7chardata[0], guildcard, slotnum);
-						if (mysql_query(myData, &myQuery[0]))
-						{
-							debug("无法保存公会卡 %u 的挑战数据. \n", guildcard);
-						}
+						myRow = mysql_fetch_row(myResult);
+						memcpy(&ship->encryptbuf[0x0C + 0x2CC0], myRow[2], 320);//传送到相应的位置即可
+						//display_packet(&ship->encryptbuf[0x0C + 0x2CC0], 320);
+						//debug("为公会卡 %u 复制挑战数据.", guildcard);
 					}
 					else
 					{
+						memcpy(&ship->encryptbuf[0x0C + 0x2CC0], &PlayerData->challengeData, 320);//传送到相应的位置即可
 						mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&PlayerData->challengeData[0], 320);
-						sprintf_s(myQuery, _countof(myQuery), "INSERT into challenge_data (guildcard, slot, data) VALUES ('%u','%u','%s')", guildcard, slotnum, (char*)&E7chardata[0]);
-						debug("完成 character_data 数据表操作... ");
+						sprintf_s(myQuery, _countof(myQuery), "INSERT into challenge_data (guildcard, slot, data) VALUES ('%u','%u','%s')", PlayerData->guildCard, slotnum, (char*)&E7chardata[0]);
+						//debug("完成 character_data 数据表操作... ");
 						if (mysql_query(myData, &myQuery[0]))
 						{
 							debug("无法为公会卡 %u 创建挑战数据.", guildcard);
 						}
 					}
+					sprintf_s(myQuery, _countof(myQuery), "DELETE from challenge_data WHERE guildcard='%u' AND slot ='%u'", PlayerData->guildCard, slotnum);
+					mysql_query(myData, &myQuery[0]);
+
 				}
+
+				size += 320;
 
 				mysql_free_result(myResult);
 
 				int battleData_exists = 0;
-				memcpy(&PlayerData->battleData, &ship->decryptbuf[0x0C + 0x2E54], 88);
-				memcpy(&ship->encryptbuf[0x0C + 0x2CC0], &PlayerData->battleData, 88);
-				size += 88;
-				sprintf_s(myQuery, _countof(myQuery), "SELECT * from battle_data WHERE guildcard='%u' AND slot='%u'", guildcard, slotnum);
+
+				sprintf_s(myQuery, _countof(myQuery), "SELECT * from battle_data WHERE guildcard='%u' AND slot='%u'", PlayerData->guildCard, slotnum);
 				//如果未开始查询
 				if (!mysql_query(myData, &myQuery[0]))
 				{
@@ -2827,31 +2819,27 @@ void ShipProcessPacket(ORANGE* ship)
 					//如果在数据中搜索到角色数据
 					if (battleData_exists)
 					{
-						mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&PlayerData->battleData[0], 88);
-						sprintf_s(myQuery, _countof(myQuery), "UPDATE battle_data set data = '%s' WHERE guildcard = '%u' AND slot = '%u'", (char*)&E7chardata[0], guildcard, slotnum);
-						if (mysql_query(myData, &myQuery[0]))
-						{
-							debug("无法保存公会卡 %u 的对战数据. \n", guildcard);
-						}
+						myRow = mysql_fetch_row(myResult);
+						memcpy(&ship->encryptbuf[0x0C + 0x2E50], myRow[2], 92);//传送到相应的位置即可
 					}
 					else
 					{
-						mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&PlayerData->battleData[0], 88);
-						sprintf_s(myQuery, _countof(myQuery), "INSERT into battle_data (guildcard, slot, data) VALUES ('%u','%u','%s')", guildcard, slotnum, (char*)&E7chardata[0]);
+						memcpy(&ship->encryptbuf[0x0C + 0x2E50], &PlayerData->battleData, 92);//传送到相应的位置即可
+						mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&PlayerData->battleData[0], 92);
+						sprintf_s(myQuery, _countof(myQuery), "INSERT into battle_data (guildcard, slot, data) VALUES ('%u','%u','%s')", PlayerData->guildCard, slotnum, (char*)&E7chardata[0]);
 						if (mysql_query(myData, &myQuery[0]))
 						{
 							debug("无法为公会卡 %u 创建对战数据.", guildcard);
 						}
 					}
+					sprintf_s(myQuery, _countof(myQuery), "DELETE from battle_data WHERE guildcard='%u' AND slot ='%u'", PlayerData->guildCard, slotnum);
+					mysql_query(myData, &myQuery[0]);
+
 				}
 
+				size += 92;
+
 				mysql_free_result(myResult);
-
-				// Update the last used character info... 更新上一次使用时的角色信息
-
-				mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&PlayerData->name[0], 24);
-				sprintf_s(myQuery, _countof(myQuery), "UPDATE account_data SET lastchar = '%s' WHERE guildcard = '%u'", (char*)&E7chardata[0], PlayerData->guildCard);
-				mysql_query(myData, &myQuery[0]);
 
 
 				//debug("保存用户 %u 槽位:(%02x) 的数据信息", guildcard, slotnum);
@@ -3072,7 +3060,6 @@ void ShipProcessPacket(ORANGE* ship)
 				}
 			}
 #else
-
 			mysql_real_escape_string(myData, &E7chardata[0], (unsigned char*)&ship->decryptbuf[0x2FCC], 420); //12236
 			sprintf_s(myQuery, _countof(myQuery), "UPDATE key_data set controls = '%s' WHERE guildcard = '%u'", (char*)&E7chardata[0], guildcard);
 			if (mysql_query(myData, &myQuery[0]))
@@ -5025,193 +5012,7 @@ void LoginProcessPacket(BANANA* client)
 	}
 }
 
-//载入允许的任务物品文件
-void LoadQuestAllow()
-{
-	unsigned ch;
-	char allow_data[256];
-	unsigned char* qa;
-	FILE* fp;
-
-	quest_numallows = 0;
-	fopen_s(&fp, "questitem.txt", "r");
-	if (fp == NULL)
-	{
-		printf("questitem.txt 文件缺失.\n");
-		printf("按下 [回车键] 退出...");
-		gets_s(&dp[0], sizeof(dp));
-		exit(1);
-	}
-	else
-	{
-		while (fgets(&allow_data[0], 255, fp) != NULL)
-		{
-			if ((allow_data[0] != 35) && (strlen(&allow_data[0]) > 5))
-				quest_numallows++;
-		}
-		quest_allow = malloc(quest_numallows * 4);
-		ch = 0;
-		fseek(fp, 0, SEEK_SET);
-		while (fgets(&allow_data[0], 255, fp) != NULL)
-		{
-			if ((allow_data[0] != 35) && (strlen(&allow_data[0]) > 5))
-			{
-				quest_allow[ch] = 0;
-				qa = (unsigned char*)&quest_allow[ch++];
-				qa[0] = hexToByte(&allow_data[0]);
-				qa[1] = hexToByte(&allow_data[2]);
-				qa[2] = hexToByte(&allow_data[4]);
-			}
-		}
-		fclose(fp);
-	}
-	printf("任务物品奖励数量: %u\n", quest_numallows);
-}
-
-//载入掉落数据
-void LoadDropData()
-{
-	unsigned ch, ch2, ch3, d;
-	unsigned char* rt_table;
-	char id_file[256];
-	FILE* fp;
-	char convert_ch[10];
-	int look_rate;
-
-	printf("正在载入掉落数据...\n");
-
-	// Each episode 每种章节
-	for (ch = 1;ch < 5;ch++)
-	{
-		if (ch != 3)
-		{
-			switch (ch)
-			{
-			case 0x01:
-				rt_table = (unsigned char*)&rt_tables_ep1[0];
-				break;
-			case 0x02:
-				rt_table = (unsigned char*)&rt_tables_ep2[0];
-				break;
-			case 0x04:
-				rt_table = (unsigned char*)&rt_tables_ep4[0];
-				break;
-			}
-			// Each difficulty 每种难度
-			for (d = 0;d < 4;d++)
-			{
-				// Each section ID 每种颜色ID
-				for (ch2 = 0;ch2 < 10;ch2++)
-				{
-					id_file[0] = 0;
-					switch (ch)
-					{
-					case 0x01:
-						strcat(&id_file[0], "drop\\ep1_mob_");
-						break;
-					case 0x02:
-						strcat(&id_file[0], "drop\\ep2_mob_");
-						break;
-					case 0x04:
-						strcat(&id_file[0], "drop\\ep4_mob_");
-						break;
-					}
-					_itoa(d, &convert_ch[0], 10);
-					strcat(&id_file[0], &convert_ch[0]);
-					strcat(&id_file[0], "_");
-					_itoa(ch2, &convert_ch[0], 10);
-					strcat(&id_file[0], &convert_ch[0]);
-					strcat(&id_file[0], ".txt");
-					ch3 = 0;
-					fp = fopen(&id_file[0], "r");
-					if (!fp)
-					{
-						printf("掉落表未找到 \"%s\"", (char*)id_file[0]);
-						printf("按下 [回车键] 退出...");
-						gets_s(&dp[0], 0);
-						exit(1);
-					}
-					look_rate = 1;
-					while (fgets(&dp[0], 255, fp) != NULL)
-					{
-						if (dp[0] != 35) // not a comment
-						{
-							if (look_rate)
-							{
-								rt_table[ch3++] = (unsigned char)atoi(&dp[0]);
-								look_rate = 0;
-							}
-							else
-							{
-								if (strlen(&dp[0]) < 6)
-								{
-									printf("掉落表已损坏 \"%s\"", (char*)id_file[0]);
-									printf("按下 [回车键] 退出...");
-									gets_s(&dp[0], 0);
-									exit(1);
-								}
-								_strupr(&dp[0]);
-								rt_table[ch3++] = hexToByte(&dp[0]);
-								rt_table[ch3++] = hexToByte(&dp[2]);
-								rt_table[ch3++] = hexToByte(&dp[4]);
-								look_rate = 1;
-							}
-						}
-					}
-					fclose(fp);
-					ch3 = 0x194;
-					memset(&rt_table[ch3], 0xFF, 30);
-					id_file[9] = 98;
-					id_file[10] = 111;
-					id_file[11] = 120;
-					fp = fopen(&id_file[0], "r");
-					if (!fp)
-					{
-						printf("掉落表未找到 \"%s\"", (char*)id_file[0]);
-						printf("按下 [回车键] 退出...");
-						gets_s(&dp[0], 0);
-						exit(1);
-					}
-					look_rate = 0;
-					while ((fgets(&dp[0], 255, fp) != NULL) && (ch3 < 0x1B2))
-					{
-						if (dp[0] != 35) // not a comment
-						{
-							switch (look_rate)
-							{
-							case 0x00:
-								rt_table[ch3] = (unsigned char)atoi(&dp[0]);
-								look_rate = 1;
-								break;
-							case 0x01:
-								rt_table[0x1B2 + ((ch3 - 0x194) * 4)] = (unsigned char)atoi(&dp[0]);
-								look_rate = 2;
-								break;
-							case 0x02:
-								if (strlen(&dp[0]) < 6)
-								{
-									printf("掉落表已损坏 \"%s\"", (char*)id_file[0]);
-									printf("按下 [回车键] 退出...");
-									gets_s(&dp[0], 0);
-									exit(1);
-								}
-								_strupr(&dp[0]);
-								rt_table[0x1B3 + ((ch3 - 0x194) * 4)] = hexToByte(&dp[0]);
-								rt_table[0x1B4 + ((ch3 - 0x194) * 4)] = hexToByte(&dp[2]);
-								rt_table[0x1B5 + ((ch3 - 0x194) * 4)] = hexToByte(&dp[4]);
-								look_rate = 0;
-								ch3++;
-								break;
-							}
-						}
-					}
-					fclose(fp);
-					rt_table += 0x800;
-				}
-			}
-		}
-	}
-}
+#include "Load_files.h"
 
 #ifdef NO_SQL
 
