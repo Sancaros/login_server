@@ -70,7 +70,7 @@ char mySQL_Database[255] = { 0 };
 unsigned int mySQL_Port;
 unsigned char serverIP[4];
 unsigned short serverPort;
-int override_on = 0;
+int override_on = 1;
 unsigned char overrideIP[4];
 unsigned short serverMaxConnections;
 unsigned short serverMaxShips;
@@ -698,7 +698,7 @@ void load_config_file()
 					// Override IP address (if specified, this IP will be sent out instead of your own to those who connect)
 					if (config_data[0] > 0x30)
 					{
-						if (override_on = 1)
+						if (override_on == 1)
 						{
 							struct hostent* IP_host;
 							//这里域名竟然-1,待解决
@@ -5725,6 +5725,16 @@ int main(int argc, char* argv[])
 						serverConnectionList[serverNumConnections++] = ch;
 						memcpy(&workConnect->IP_Address[0], inet_ntoa(listen_in.sin_addr), 16);
 						printf("已接受来自 %s:%u 的角色数据连接\n", inet_ntoa(listen_in.sin_addr), listen_in.sin_port);
+
+						if ((fp = fopen("loginCount.txt", "w")) == NULL)
+						{
+							printf("loginCount.txt 文件不存在.\n");
+						}
+						else
+						{
+							fprintf(fp, "%u", serverNumConnections);
+							fclose(fp);
+						}
 						start_encryption(workConnect);
 						/* Doin' character process... */
 						workConnect->login = 2;
